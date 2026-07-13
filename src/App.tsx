@@ -83,11 +83,11 @@ export default function App() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [autoPlayNext, setAutoPlayNext] = useState(true);
-  const [duration, setDuration] = useState(30); // Session duration in minutes
+  const [duration, setDuration] = useState(15); // Session duration in minutes
   const [isMuted, setIsMuted] = useState(false);
   const [practicePhase, setPracticePhase] = useState<"narration" | "hold">("narration");
   const [currentHoldRemaining, setCurrentHoldRemaining] = useState(30);
-  const [totalSecondsRemaining, setTotalSecondsRemaining] = useState(30 * 60);
+  const [totalSecondsRemaining, setTotalSecondsRemaining] = useState(15 * 60);
   const [isChimeEnabled, setIsChimeEnabled] = useState(true);
   
   // Cache check status
@@ -907,7 +907,7 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-2" id="duration_selector">
-                    {[30, 45, 60].map((mins) => (
+                    {[15, 30, 45].map((mins) => (
                       <button
                         key={mins}
                         onClick={() => setDuration(mins)}
@@ -922,7 +922,7 @@ export default function App() {
                     ))}
                   </div>
                   <p className="text-[11px] text-[#2d3e35]/65 leading-relaxed">
-                    * La sequenza completa di 23 asana viene sempre eseguita. Selezionando una durata maggiore (es. 45 o 60 minuti), aumenterà il tempo di mantenimento silenzioso in ogni posizione, favorendo una pratica e una respirazione più profonde.
+                    * La durata della sessione seleziona in automatico un set bilanciato di asana (9 passi per 15 min, 16 passi per 30 min, tutti i 23 passi per 45 min) e ne adatta il ritmo di tenuta complessivo.
                   </p>
                 </div>
                 {/* Primary CTA Block */}

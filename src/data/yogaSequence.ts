@@ -339,7 +339,68 @@ export const YOGA_SEQUENCE: YogaStep[] = [
 ];
 
 export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]): YogaStep[] {
-  // Restituiamo sempre l'intera sequenza per garantire la presenza di tutte le categorie richieste.
-  // La durata della sessione influirà sul tempo di tenuta silenziosa tra gli audio.
+  if (durationMin <= 10) {
+    const ids = [
+      "integrazione_sukhasana",
+      "riscaldamento_gatto_mucca",
+      "piedi_tadasana",
+      "piegamento_cobra",
+      "rilassamento_savasana",
+      "meditazione_guida"
+    ];
+    return allSteps.filter(s => ids.includes(s.id));
+  }
+  if (durationMin <= 15) {
+    const ids = [
+      "integrazione_sukhasana",
+      "riscaldamento_gatto_mucca",
+      "piedi_tadasana",
+      "piedi_guerriero2_sinistro",
+      "piedi_guerriero2_destro",
+      "piegamento_cobra",
+      "defaticamento_apanasana",
+      "rilassamento_savasana",
+      "meditazione_guida"
+    ];
+    return allSteps.filter(s => ids.includes(s.id));
+  }
+  if (durationMin <= 20) {
+    const ids = [
+      "integrazione_sukhasana",
+      "riscaldamento_gatto_mucca",
+      "piedi_tadasana",
+      "piedi_guerriero2_sinistro",
+      "piedi_guerriero2_destro",
+      "equilibrio_albero_sinistro",
+      "equilibrio_albero_destro",
+      "piegamento_cobra",
+      "defaticamento_apanasana",
+      "rilassamento_savasana",
+      "respirazione_sama_vritti",
+      "meditazione_guida"
+    ];
+    return allSteps.filter(s => ids.includes(s.id));
+  }
+  if (durationMin <= 30) {
+    const ids = [
+      "integrazione_sukhasana",
+      "riscaldamento_gatto_mucca",
+      "riscaldamento_collo_spalle",
+      "piedi_tadasana",
+      "piedi_guerriero2_sinistro",
+      "piedi_guerriero2_destro",
+      "piedi_triangolo_sinistro",
+      "piedi_triangolo_destro",
+      "equilibrio_albero_sinistro",
+      "equilibrio_albero_destro",
+      "piegamento_cobra",
+      "apertura_farfalla",
+      "defaticamento_apanasana",
+      "rilassamento_savasana",
+      "respirazione_sama_vritti",
+      "meditazione_guida"
+    ];
+    return allSteps.filter(s => ids.includes(s.id));
+  }
   return allSteps;
 }

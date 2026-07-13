@@ -201,14 +201,14 @@ app.get("/api/health", (req, res) => {
 
 // API: Get sequence steps list
 app.get("/api/sequence", (req, res) => {
-  const durationMin = parseInt(req.query.duration as string) || 30;
+  const durationMin = parseInt(req.query.duration as string) || 15;
   const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
   res.json(activeSequence);
 });
 
 // API: Get cached status
 app.get("/api/cache-status", (req, res) => {
-  const durationMin = parseInt(req.query.duration as string) || 30;
+  const durationMin = parseInt(req.query.duration as string) || 15;
   const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
   const files = fs.readdirSync(CACHE_DIR);
   const status: Record<string, boolean> = {};
@@ -226,7 +226,7 @@ app.get("/api/cache-status", (req, res) => {
 
 // API: Trigger background pre-generation of all step voice audios
 app.post("/api/cache-warmup", async (req, res) => {
-  const durationMin = parseInt(req.query.duration as string) || 30;
+  const durationMin = parseInt(req.query.duration as string) || 15;
   const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
   const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
   
@@ -340,7 +340,7 @@ function getStepPCMInfo(stepId: string, cacheDir: string): { downsampledLength: 
 // API: Download combined session audio with customized silence pauses
 app.get("/api/audio-download", async (req, res) => {
   try {
-    let durationMin = parseInt(req.query.duration as string) || 30;
+    let durationMin = parseInt(req.query.duration as string) || 15;
     // Clamp defensively between 5 and 90 minutes
     if (durationMin < 5) durationMin = 5;
     if (durationMin > 90) durationMin = 90;
