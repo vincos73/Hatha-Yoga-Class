@@ -4,12 +4,12 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { YOGA_SEQUENCE } from "./src/data/yogaSequence.js";
+import { YOGA_SEQUENCE, getSequenceForDuration } from "./src/data/yogaSequence.js";
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = 3001;
 
 // Initialize GoogleGenAI client with the required User-Agent
 const ai = new GoogleGenAI({
@@ -87,6 +87,15 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
     return fs.readFileSync(cachePath);
   }
   
+  const apiKeyToUse = customApiKey || process.env.GEMINI_API_KEY;
+  if (!apiKeyToUse) {
+    if (allowThrow) {
+      throw new Error("NoApiKeyConfigured");
+    }
+    const fallbackBuffer = Buffer.alloc(240000);
+    return fallbackBuffer;
+  }
+
   if (!customApiKey && Date.now() < cloudTtsBypassedUntil) {
     if (allowThrow) {
       throw new Error("LocalFallbackActive");
@@ -95,40 +104,44 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
     return fallbackBuffer;
   }
   
-  console.log(`[TTS] Requesting voice for ${stepId}${customApiKey ? " using custom API key" : ""}...`);
+  console.log(`[TTS] Requesting voice for ${stepId}${customApiKey ? " using custom API key" : " using default server key"}...`);
   let attempt = 0;
   const maxAttempts = 2;
   let delay = 1000;
 
-  const activeAi = customApiKey
-    ? new GoogleGenAI({
-        apiKey: customApiKey,
-        httpOptions: {
-          headers: {
-            "User-Agent": "aistudio-build",
-          },
-        },
-      })
-    : ai;
-
   while (attempt < maxAttempts) {
     try {
       attempt++;
-      // Call Gemini Text to Speech API
-      const response = await activeAi.models.generateContent({
-        model: "gemini-3.1-flash-tts-preview",
-        contents: [{ parts: [{ text: `Leggi con voce estremamente calma, rilassante, calda e rassicurante in italiano, facendo delle brevi pause naturali tra le frasi: ${speechScript}` }] }],
-        config: {
-          responseModalities: ["AUDIO"],
-          speechConfig: {
-            voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: "Zephyr" }
+      
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${encodeURIComponent(apiKeyToUse)}`;
+      
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "aistudio-build"
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: `Leggi con voce estremamente calma, rilassante, calda e rassicurante in italiano, facendo delle brevi pause naturali tra le frasi: ${speechScript}` }] }],
+          generationConfig: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+              voiceConfig: {
+                prebuiltVoiceConfig: { voiceName: "Zephyr" }
+              }
             }
           }
-        }
+        })
       });
-      
-      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        const errMsg = errJson.error?.message || `HTTP error! status: ${response.status}`;
+        throw new Error(errMsg);
+      }
+
+      const data = await response.json();
+      const base64Audio = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
       if (!base64Audio) {
         throw new Error("NoVoiceData");
       }
@@ -143,27 +156,14 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
       
       if (isQuota) {
         if (customApiKey) {
-          // If custom key gets quota error, throw immediately so client is notified of their key's quota limit
           throw new Error("CustomApiKeyQuotaExceeded");
         }
 
-        // Activate cool-down bypass based on Gemini's specified delay or default to 60s
         let cooldownMs = 60 * 1000;
         try {
           const retryMatch = errorMsg.match(/retry in ([\d\.]+)s/i);
           if (retryMatch && retryMatch[1]) {
             cooldownMs = (parseFloat(retryMatch[1]) + 2) * 1000;
-          } else {
-            const errorDetails = error.details || error.error?.details;
-            if (Array.isArray(errorDetails)) {
-              const retryInfo = errorDetails.find((d: any) => d["@type"] === "type.googleapis.com/google.rpc.RetryInfo");
-              if (retryInfo?.retryDelay) {
-                const seconds = parseFloat(retryInfo.retryDelay);
-                if (!isNaN(seconds)) {
-                  cooldownMs = (seconds + 2) * 1000;
-                }
-              }
-            }
           }
         } catch (_) {}
 
@@ -190,7 +190,6 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
     }
   }
 
-  // Fallback to a silent 5-second buffer (24000 Hz * 2 bytes/sample * 5 seconds = 240000 bytes)
   const fallbackBuffer = Buffer.alloc(240000);
   return fallbackBuffer;
 }
@@ -202,19 +201,23 @@ app.get("/api/health", (req, res) => {
 
 // API: Get sequence steps list
 app.get("/api/sequence", (req, res) => {
-  res.json(YOGA_SEQUENCE);
+  const durationMin = parseInt(req.query.duration as string) || 15;
+  const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
+  res.json(activeSequence);
 });
 
 // API: Get cached status
 app.get("/api/cache-status", (req, res) => {
+  const durationMin = parseInt(req.query.duration as string) || 15;
+  const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
   const files = fs.readdirSync(CACHE_DIR);
   const status: Record<string, boolean> = {};
-  YOGA_SEQUENCE.forEach(step => {
+  activeSequence.forEach(step => {
     status[step.id] = files.includes(`${step.id}.pcm`);
   });
   res.json({
     cachedCount: Object.values(status).filter(Boolean).length,
-    totalCount: YOGA_SEQUENCE.length,
+    totalCount: activeSequence.length,
     status,
     quotaExceeded: Date.now() < cloudTtsBypassedUntil,
     cooldownRemaining: Math.max(0, Math.round((cloudTtsBypassedUntil - Date.now()) / 1000))
@@ -223,14 +226,42 @@ app.get("/api/cache-status", (req, res) => {
 
 // API: Trigger background pre-generation of all step voice audios
 app.post("/api/cache-warmup", async (req, res) => {
-  res.json({ message: "Inizio preriscaldamento della cache in background." });
-  
+  const durationMin = parseInt(req.query.duration as string) || 15;
+  const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
   const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
+  
+  // Verify API key before starting background warmup
+  if (customApiKey) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(customApiKey)}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          "User-Agent": "aistudio-build"
+        }
+      });
+      
+      if (!response.ok) {
+        const errJson = await response.json().catch(() => ({}));
+        const errMsg = errJson.error?.message || `HTTP error! status: ${response.status}`;
+        throw new Error(errMsg);
+      }
+    } catch (error: any) {
+      console.error("[TTS Cache] Custom API Key validation failed:", error);
+      res.status(400).json({ error: `La chiave API Gemini inserita non è valida: ${error.message || error}` });
+      return;
+    }
+  } else if (!process.env.GEMINI_API_KEY) {
+    res.status(400).json({ error: "Chiave API Gemini non configurata sul server. Sblocca il limite inserendo una chiave personale in alto a destra." });
+    return;
+  }
+  
+  res.json({ message: "Inizio preriscaldamento della cache in background." });
   
   // Warm up in background so response is non-blocking
   (async () => {
-    console.log("[TTS Cache] Starting background cache warmup...");
-    for (const step of YOGA_SEQUENCE) {
+    console.log(`[TTS Cache] Starting background cache warmup for ${durationMin}m (${activeSequence.length} steps)...`);
+    for (const step of activeSequence) {
       // If we are currently rate-limited and NOT using a custom API key, wait until the cooldown expires
       if (!customApiKey) {
         while (Date.now() < cloudTtsBypassedUntil) {
@@ -242,8 +273,8 @@ app.post("/api/cache-warmup", async (req, res) => {
       
       try {
         await getStepAudioPCM(step.id, step.speechScript, false, customApiKey);
-        // Wait 21 seconds (3 RPM) to perfectly respect the free-tier rate limits for both personal and shared keys
-        const delay = 21000;
+        // Wait to respect rate limits (4s if custom, 21s if shared/default)
+        const delay = customApiKey ? 4000 : 21000;
         await new Promise(r => setTimeout(r, delay));
       } catch (err) {
         console.log(`[TTS Cache] Soft bypass for ${step.id}:`, err);
@@ -317,41 +348,45 @@ app.get("/api/audio-download", async (req, res) => {
     const totalDurationSec = durationMin * 60;
     
     const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
-    console.log(`[TTS Download] Generating combined audio of ${durationMin} minutes${customApiKey ? " with custom API key" : ""}...`);
+    const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
+    console.log(`[TTS Download] Generating combined audio of ${durationMin} minutes (${activeSequence.length} steps)${customApiKey ? " with custom API key" : ""}...`);
     
-    // Try to trigger background cache warming for any missing steps asynchronously (completely non-blocking)
-    (async () => {
-      for (const step of YOGA_SEQUENCE) {
-        const cachePath = path.join(CACHE_DIR, `${step.id}.pcm`);
-        if (!fs.existsSync(cachePath)) {
-          if (!customApiKey && Date.now() < cloudTtsBypassedUntil) continue; // Skip to avoid hammering while in cooldown
-          try {
-            await getStepAudioPCM(step.id, step.speechScript, false, customApiKey);
-            // Wait 21 seconds (3 RPM) to perfectly respect the free-tier rate limits for both personal and shared keys
-            const delay = 21000;
-            await new Promise(r => setTimeout(r, delay));
-          } catch (_) {}
+    // 1. Generate any missing steps sequentially before starting the stream
+    for (let i = 0; i < activeSequence.length; i++) {
+      const step = activeSequence[i];
+      const cachePath = path.join(CACHE_DIR, `${step.id}.pcm`);
+      
+      if (!fs.existsSync(cachePath)) {
+        console.log(`[TTS Download] Cache miss for step ${step.id}. Generating before stream...`);
+        try {
+          await getStepAudioPCM(step.id, step.speechScript, true, customApiKey);
+          // Wait to respect rate limits (4.5s if custom, 21s if shared/default)
+          const delay = customApiKey ? 4500 : 21000;
+          await new Promise(r => setTimeout(r, delay));
+        } catch (err) {
+          console.warn(`[TTS Download] Failed to pre-generate ${step.id}, using silence fallback:`, err);
+          // Cache a silent fallback buffer so we don't repeat failing API calls
+          const fallbackBuffer = Buffer.alloc(240000);
+          fs.writeFileSync(cachePath, fallbackBuffer);
         }
       }
-    })();
-    
-    // 0. Snapshot file sizes right now to ensure absolute consistency between Content-Length calculation and bytes streamed
-    const snapshottedOriginalLengths: Record<string, number> = {};
-    for (const step of YOGA_SEQUENCE) {
-      const cachePath = path.join(CACHE_DIR, `${step.id}.pcm`);
-      let originalLength = 240000; // default 5 seconds silence at 24000Hz (16-bit Mono)
-      if (fs.existsSync(cachePath)) {
-        try {
-          originalLength = fs.statSync(cachePath).size;
-        } catch (_) {}
-      }
-      snapshottedOriginalLengths[step.id] = originalLength;
     }
     
-    // 1. Calculate PCM lengths for each step based on snapshot
+    // 2. Snapshot the exact sizes of all cached files
+    const snapshottedOriginalLengths: Record<string, number> = {};
+    for (const step of activeSequence) {
+      const cachePath = path.join(CACHE_DIR, `${step.id}.pcm`);
+      try {
+        snapshottedOriginalLengths[step.id] = fs.statSync(cachePath).size;
+      } catch (_) {
+        snapshottedOriginalLengths[step.id] = 240000;
+      }
+    }
+    
+    // 3. Calculate downsampled lengths and total speech bytes
     let totalSpeechBytes = 0;
     const snapshottedDownsampledLengths: Record<string, number> = {};
-    for (const step of YOGA_SEQUENCE) {
+    for (const step of activeSequence) {
       const originalLength = snapshottedOriginalLengths[step.id];
       const numSamples = Math.floor(originalLength / 2);
       const newNumSamples = Math.floor(numSamples / 2);
@@ -363,8 +398,8 @@ app.get("/api/audio-download", async (req, res) => {
     
     const totalSpeechSec = totalSpeechBytes / (12000 * 2);
     
-    // 2. Distribute remaining time as pauses
-    const numPauses = YOGA_SEQUENCE.length - 1;
+    // 4. Distribute remaining time as pauses
+    const numPauses = activeSequence.length - 1;
     let pauseSec = (totalDurationSec - totalSpeechSec) / numPauses;
     if (pauseSec < 2) {
       pauseSec = 2; // Hard floor of 2 seconds
@@ -378,49 +413,49 @@ app.get("/api/audio-download", async (req, res) => {
     const totalDataSize = totalSpeechBytes + totalSilenceBytes;
     const wavHeader = createWavHeader(totalDataSize, 12000);
     
-    // 3. Set response headers for direct stream download with anti-buffering & no-cache
+    // 5. Set response headers for direct stream download with anti-buffering & no-cache
     res.setHeader("Content-Type", "audio/wav");
     res.setHeader("Content-Disposition", `attachment; filename="sequenza_yoga_hatha_${durationMin}min.wav"`);
-    res.setHeader("Content-Length", totalDataSize + 44);
+    res.setHeader("x-audio-total-bytes", (totalDataSize + 44).toString());
+    res.setHeader("Access-Control-Expose-Headers", "x-audio-total-bytes");
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
     res.setHeader("X-Content-Type-Options", "nosniff");
     
-    // Write WAV header immediately to prevent any client-side or gateway timeouts
+    // Write WAV header immediately to start download
     res.write(wavHeader);
     
-    // 4. Pre-allocate silence buffer once to reuse
+    // 6. Pre-allocate silence buffer once to reuse
     const silenceBuffer = Buffer.alloc(pauseBytesSize);
     
-    // 5. Stream each step sequential chunk by chunk
-    for (let i = 0; i < YOGA_SEQUENCE.length; i++) {
-      const step = YOGA_SEQUENCE[i];
+    // 7. Stream each step sequential chunk by chunk
+    for (let i = 0; i < activeSequence.length; i++) {
+      const step = activeSequence[i];
       const cachePath = path.join(CACHE_DIR, `${step.id}.pcm`);
       const targetOriginalLength = snapshottedOriginalLengths[step.id];
-      let pcm: Buffer;
+      const targetDownsampledLength = snapshottedDownsampledLengths[step.id];
       
-      if (targetOriginalLength !== 240000) {
-        try {
-          const fileBuf = fs.readFileSync(cachePath);
-          if (fileBuf.length === targetOriginalLength) {
-            pcm = fileBuf;
-          } else if (fileBuf.length > targetOriginalLength) {
-            pcm = fileBuf.subarray(0, targetOriginalLength);
-          } else {
-            pcm = Buffer.concat([fileBuf, Buffer.alloc(targetOriginalLength - fileBuf.length)]);
-          }
-        } catch (_) {
-          pcm = Buffer.alloc(targetOriginalLength);
-        }
-      } else {
-        pcm = Buffer.alloc(240000);
+      let pcm: Buffer;
+      try {
+        pcm = fs.readFileSync(cachePath);
+      } catch (_) {
+        pcm = Buffer.alloc(targetOriginalLength);
       }
       
-      const downsampled = downsamplePCM2x(pcm);
+      // Ensure PCM buffer is of targetOriginalLength so we don't have sizing issues
+      let finalPCM = pcm;
+      if (pcm.length !== targetOriginalLength) {
+        if (pcm.length > targetOriginalLength) {
+          finalPCM = pcm.subarray(0, targetOriginalLength);
+        } else {
+          finalPCM = Buffer.concat([pcm, Buffer.alloc(targetOriginalLength - pcm.length)]);
+        }
+      }
+      
+      const downsampled = downsamplePCM2x(finalPCM);
       
       let finalDownsampled = downsampled;
-      const targetDownsampledLength = snapshottedDownsampledLengths[step.id];
       if (downsampled.length !== targetDownsampledLength) {
         if (downsampled.length > targetDownsampledLength) {
           finalDownsampled = downsampled.subarray(0, targetDownsampledLength);
@@ -431,7 +466,7 @@ app.get("/api/audio-download", async (req, res) => {
       
       res.write(finalDownsampled);
       
-      if (i < YOGA_SEQUENCE.length - 1) {
+      if (i < activeSequence.length - 1) {
         res.write(silenceBuffer);
       }
     }

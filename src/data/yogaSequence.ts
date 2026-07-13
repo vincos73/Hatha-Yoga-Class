@@ -337,3 +337,70 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     speechScript: "Rimani seduto con gli occhi chiusi, oppure se preferisci sdraiati di nuovo in Savasana. Ora faremo un viaggio di consapevolezza corporea per accogliere pienamente i benefici della nostra pratica. Porta l'attenzione alla sommità della tua testa. Senti la pelle del cranio che si distende... Scendi alla fronte, ammorbidisci lo spazio tra le sopracciglia... Rilassa le palpebre, le guance, le labbra. Lascia cadere la lingua all'interno della bocca, rilasciando completamente la mandibola... Senti il collo che si rilassa e le spalle che scivolano pesanti verso la terra... Senti il braccio sinistro, il gomito, il polso, la mano sinistra e ogni singolo dito che si rilassa... Ora sposta l'attenzione al braccio destro, gomito, polso, mano destra e tutte le dita... Senti il petto aprirsi, e l'addome muoversi morbido a ogni respiro... Scendi al bacino, alle anche, senti le natiche appoggiate a terra... Rilassa la coscia sinistra, il ginocchio, la tibia, la caviglia, il piede sinistro fino alle dita... Ora rilassa la coscia destra, il ginocchio, il polfaccio, la caviglia, il piede destro e tutte le dita... Tutto il tuo corpo, dalla testa ai piedi, è ora una distesa di calma, luce e pace interiore... Rimani in questo stato di grazia per qualche istante... Ora, molto delicatamente, riporta la consapevolezza al respiro... Senti la vita che scorre in te. Fai un respiro profondo... e quando ti senti pronto, riapri dolcemente gli occhi, portando questa pace con te per il resto della giornata. Namastè."
   }
 ];
+
+export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]): YogaStep[] {
+  if (durationMin <= 10) {
+    const ids = [
+      "integrazione_sukhasana",
+      "riscaldamento_gatto_mucca",
+      "piedi_tadasana",
+      "piegamento_cobra",
+      "rilassamento_savasana",
+      "meditazione_guida"
+    ];
+    return allSteps.filter(s => ids.includes(s.id));
+  }
+  if (durationMin <= 15) {
+    const ids = [
+      "integrazione_sukhasana",
+      "riscaldamento_gatto_mucca",
+      "piedi_tadasana",
+      "piedi_guerriero2_sinistro",
+      "piedi_guerriero2_destro",
+      "piegamento_cobra",
+      "defaticamento_apanasana",
+      "rilassamento_savasana",
+      "meditazione_guida"
+    ];
+    return allSteps.filter(s => ids.includes(s.id));
+  }
+  if (durationMin <= 20) {
+    const ids = [
+      "integrazione_sukhasana",
+      "riscaldamento_gatto_mucca",
+      "piedi_tadasana",
+      "piedi_guerriero2_sinistro",
+      "piedi_guerriero2_destro",
+      "equilibrio_albero_sinistro",
+      "equilibrio_albero_destro",
+      "piegamento_cobra",
+      "defaticamento_apanasana",
+      "rilassamento_savasana",
+      "respirazione_sama_vritti",
+      "meditazione_guida"
+    ];
+    return allSteps.filter(s => ids.includes(s.id));
+  }
+  if (durationMin <= 30) {
+    const ids = [
+      "integrazione_sukhasana",
+      "riscaldamento_gatto_mucca",
+      "riscaldamento_collo_spalle",
+      "piedi_tadasana",
+      "piedi_guerriero2_sinistro",
+      "piedi_guerriero2_destro",
+      "piedi_triangolo_sinistro",
+      "piedi_triangolo_destro",
+      "equilibrio_albero_sinistro",
+      "equilibrio_albero_destro",
+      "piegamento_cobra",
+      "apertura_farfalla",
+      "defaticamento_apanasana",
+      "rilassamento_savasana",
+      "respirazione_sama_vritti",
+      "meditazione_guida"
+    ];
+    return allSteps.filter(s => ids.includes(s.id));
+  }
+  return allSteps;
+}

@@ -24,9 +24,59 @@ import {
   ChevronRight,
   Sparkle,
   Laptop,
-  Key
+  Key,
+  Bell,
+  BellOff
 } from "lucide-react";
-import { YOGA_SEQUENCE, YogaStep } from "./data/yogaSequence";
+import { YOGA_SEQUENCE, YogaStep, getSequenceForDuration } from "./data/yogaSequence";
+
+const formatTime = (secs: number) => {
+  const m = Math.floor(secs / 60);
+  const s = secs % 60;
+  return `${m}:${s < 10 ? '0' : ''}${s}`;
+};
+
+const playSingingBowlChime = (pitch = 180) => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    
+    // Non-harmonic overtones for a rich Tibetan singing bowl sound:
+    const frequencies = [pitch, pitch * 2, pitch * 2.76, pitch * 3.2, pitch * 5.4];
+    const gains = [0.5, 0.25, 0.15, 0.1, 0.05];
+    
+    const masterGain = ctx.createGain();
+    masterGain.connect(ctx.destination);
+    
+    masterGain.gain.setValueAtTime(0, ctx.currentTime);
+    masterGain.gain.linearRampToValueAtTime(0.4, ctx.currentTime + 0.08);
+    masterGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 5.0);
+    
+    frequencies.forEach((freq, index) => {
+      const osc = ctx.createOscillator();
+      const oscGain = ctx.createGain();
+      
+      osc.type = index % 2 === 0 ? "sine" : "triangle";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      
+      if (index > 0) {
+        osc.frequency.setValueAtTime(freq + Math.sin(index) * 1.5, ctx.currentTime);
+      }
+      
+      oscGain.gain.setValueAtTime(gains[index], ctx.currentTime);
+      oscGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 4.0 - index * 0.4);
+      
+      osc.connect(oscGain);
+      oscGain.connect(masterGain);
+      
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 5.0);
+    });
+  } catch (e) {
+    console.warn("Could not play singing bowl chime:", e);
+  }
+};
 
 export default function App() {
   const [screen, setScreen] = useState<"welcome" | "practice">("welcome");
@@ -35,6 +85,10 @@ export default function App() {
   const [autoPlayNext, setAutoPlayNext] = useState(true);
   const [duration, setDuration] = useState(15); // Session duration in minutes
   const [isMuted, setIsMuted] = useState(false);
+  const [practicePhase, setPracticePhase] = useState<"narration" | "hold">("narration");
+  const [currentHoldRemaining, setCurrentHoldRemaining] = useState(30);
+  const [totalSecondsRemaining, setTotalSecondsRemaining] = useState(15 * 60);
+  const [isChimeEnabled, setIsChimeEnabled] = useState(true);
   
   // Cache check status
   const [cacheStatus, setCacheStatus] = useState<{
@@ -47,9 +101,11 @@ export default function App() {
     isWarming: false
   });
 
-  // Breathing Coach states
-  const [breathPhase, setBreathPhase] = useState<"inspira" | "espira" | "trattieni_pieno" | "trattieni_vuoto">("inspira");
-  const [breathCount, setBreathCount] = useState(4);
+  // Breathing Coach state
+  const [breath, setBreath] = useState<{
+    phase: "inspira" | "espira" | "trattieni_pieno" | "trattieni_vuoto";
+    count: number;
+  }>({ phase: "inspira", count: 4 });
   const [activeTab, setActiveTab] = useState<"entrata" | "mantenimento" | "uscita">("entrata");
 
   // Download states: 'idle' | 'preparing' | 'downloading' | 'completed' | 'error'
@@ -69,23 +125,32 @@ export default function App() {
   const saveApiKey = (key: string) => {
     const trimmed = key.trim();
     if (trimmed) {
-      localStorage.setItem("custom_gemini_api_key", trimmed);
-      setCustomApiKey(trimmed);
-      setHasQuotaError(false);
-      setVoiceEngine("ai");
-      setKeySaveSuccess(true);
-      setTimeout(() => setKeySaveSuccess(false), 3000);
-      
-      // Warm up cache immediately with the new key!
+      // Warm up cache immediately with the new key and verify it!
       const url = `/api/cache-warmup?apiKey=${encodeURIComponent(trimmed)}`;
       fetch(url, { 
         method: "POST", 
         headers: { "x-gemini-api-key": trimmed } 
       })
-        .then(() => console.log("Cache warmup started with custom key..."))
-        .catch(err => console.log("Warmup error with custom key:", err));
-        
-      fetchCacheStatus();
+        .then(async (res) => {
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || "Chiave API non valida.");
+          }
+          localStorage.setItem("custom_gemini_api_key", trimmed);
+          setCustomApiKey(trimmed);
+          setHasQuotaError(false);
+          setVoiceEngine("ai");
+          setKeySaveSuccess(true);
+          setTimeout(() => setKeySaveSuccess(false), 3000);
+          fetchCacheStatus();
+        })
+        .catch(err => {
+          console.error("API Key save failed:", err);
+          localStorage.removeItem("custom_gemini_api_key");
+          setCustomApiKey("");
+          fetchCacheStatus();
+          alert(err.message || "Errore durante la verifica della chiave API. Assicurati che sia corretta.");
+        });
     } else {
       localStorage.removeItem("custom_gemini_api_key");
       setCustomApiKey("");
@@ -98,9 +163,20 @@ export default function App() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const breathingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const currentStep = YOGA_SEQUENCE[currentStepIndex];
+  const activeSequence = getSequenceForDuration(duration, YOGA_SEQUENCE);
 
-  // Check cache status on mount
+  // Estimate total speech duration in seconds
+  const totalSpeechSec = activeSequence.reduce((acc, step) => {
+    const wordCount = step.speechScript.split(/\s+/).filter(Boolean).length;
+    return acc + Math.max(4, wordCount / 2.2);
+  }, 0);
+  const totalDurationSec = duration * 60;
+  const numPauses = activeSequence.length - 1;
+  const calculatedHoldTime = Math.max(5, Math.round((totalDurationSec - totalSpeechSec) / numPauses));
+
+  const currentStep = activeSequence[currentStepIndex] || activeSequence[0];
+
+  // Check cache status and trigger warmup when duration changes
   useEffect(() => {
     fetchCacheStatus();
     
@@ -111,16 +187,16 @@ export default function App() {
       headers["x-gemini-api-key"] = storedKey;
     }
     const url = storedKey 
-      ? `/api/cache-warmup?apiKey=${encodeURIComponent(storedKey)}` 
-      : "/api/cache-warmup";
+      ? `/api/cache-warmup?duration=${duration}&apiKey=${encodeURIComponent(storedKey)}` 
+      : `/api/cache-warmup?duration=${duration}`;
     fetch(url, { method: "POST", headers })
-      .then(() => console.log("Cache warmup started..."))
+      .then(() => console.log(`Cache warmup started for duration ${duration}...`))
       .catch(err => console.log("Silent warmup error:", err));
-  }, []);
+  }, [duration]);
 
   const fetchCacheStatus = async () => {
     try {
-      const res = await fetch("/api/cache-status");
+      const res = await fetch(`/api/cache-status?duration=${duration}`);
       if (res.ok) {
         const data = await res.json();
         setCacheStatus(prev => ({
@@ -151,14 +227,14 @@ export default function App() {
         headers["x-gemini-api-key"] = storedKey;
       }
       const url = storedKey 
-        ? `/api/cache-warmup?apiKey=${encodeURIComponent(storedKey)}` 
-        : "/api/cache-warmup";
+        ? `/api/cache-warmup?duration=${duration}&apiKey=${encodeURIComponent(storedKey)}` 
+        : `/api/cache-warmup?duration=${duration}`;
       
       await fetch(url, { method: "POST", headers });
       
       // Poll cache status every 2 seconds to show real progress
       const interval = setInterval(async () => {
-        const res = await fetch("/api/cache-status");
+        const res = await fetch(`/api/cache-status?duration=${duration}`);
         if (res.ok) {
           const data = await res.json();
           setCacheStatus(prev => ({
@@ -221,7 +297,7 @@ export default function App() {
         throw new Error(errMsg);
       }
       
-      const contentLengthHeader = response.headers.get("content-length");
+      const contentLengthHeader = response.headers.get("x-audio-total-bytes") || response.headers.get("content-length");
       const totalBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
       
       setDownloadState("downloading");
@@ -287,6 +363,51 @@ export default function App() {
     }, 5000);
   };
 
+  // Master timer effect for practice hold duration & total session time
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    
+    if (isPlaying) {
+      interval = setInterval(() => {
+        // Decrement total session timer
+        setTotalSecondsRemaining(prev => Math.max(0, prev - 1));
+        
+        // If we are in the hold phase, decrement the hold timer
+        if (practicePhase === "hold") {
+          setCurrentHoldRemaining(prev => {
+            if (prev <= 1) {
+              // Hold phase completed!
+              if (isChimeEnabled && !isMuted) {
+                playSingingBowlChime(150); // Lower tone to signal transition
+              }
+              
+              if (currentStepIndex < YOGA_SEQUENCE.length - 1) {
+                if (autoPlayNext) {
+                  // Transition to next step
+                  setTimeout(() => {
+                    setCurrentStepIndex(idx => idx + 1);
+                    setPracticePhase("narration");
+                  }, 1500); // 1.5s gentle transition pause
+                } else {
+                  setIsPlaying(false);
+                }
+                // Last step completed! End session
+                setIsPlaying(false);
+                setScreen("completed");
+              }
+              return 0;
+            }
+            return prev - 1;
+          });
+        }
+      }, 1000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isPlaying, practicePhase, currentStepIndex, autoPlayNext, isChimeEnabled, isMuted]);
+
   // Synchronize audio / speech synthesis element
   useEffect(() => {
     // 1. Clean up any ongoing playback first
@@ -312,13 +433,10 @@ export default function App() {
         utterance.volume = isMuted ? 0 : 1;
 
         utterance.onend = () => {
-          if (autoPlayNext && currentStepIndex < YOGA_SEQUENCE.length - 1) {
-            setTimeout(() => {
-              setCurrentStepIndex(prev => prev + 1);
-              setIsPlaying(true);
-            }, 1500); // Gentle transition pause
-          } else {
-            setIsPlaying(false);
+          setPracticePhase("hold");
+          setCurrentHoldRemaining(calculatedHoldTime);
+          if (isChimeEnabled && !isMuted) {
+            playSingingBowlChime(220); // standard warm chime
           }
         };
 
@@ -332,6 +450,7 @@ export default function App() {
 
       // Reset tab to "entrata" whenever changing steps
       setActiveTab("entrata");
+      setPracticePhase("narration");
 
       return () => {
         window.speechSynthesis.cancel();
@@ -345,13 +464,10 @@ export default function App() {
       audio.muted = isMuted;
 
       audio.onended = () => {
-        if (autoPlayNext && currentStepIndex < YOGA_SEQUENCE.length - 1) {
-          setTimeout(() => {
-            setCurrentStepIndex(prev => prev + 1);
-            setIsPlaying(true);
-          }, 1500); // Gentle transition pause
-        } else {
-          setIsPlaying(false);
+        setPracticePhase("hold");
+        setCurrentHoldRemaining(calculatedHoldTime);
+        if (isChimeEnabled && !isMuted) {
+          playSingingBowlChime(220); // standard warm chime
         }
       };
 
@@ -372,6 +488,7 @@ export default function App() {
 
       // Reset tab to "entrata" whenever changing steps
       setActiveTab("entrata");
+      setPracticePhase("narration");
 
       return () => {
         audio.pause();
@@ -379,7 +496,7 @@ export default function App() {
         audio.onerror = null;
       };
     }
-  }, [currentStepIndex, voiceEngine, isPlaying, isMuted]);
+  }, [currentStepIndex, voiceEngine, isPlaying, isMuted, calculatedHoldTime, isChimeEnabled]);
 
   // Handle Play/Pause
   const togglePlay = () => {
@@ -401,30 +518,32 @@ export default function App() {
       clearInterval(breathingTimerRef.current);
     }
 
+    if (!isPlaying) return;
+
     const isPranayama = currentStep.category === "respirazione";
 
+    // Reset breath state when step changes
+    setBreath({ phase: "inspira", count: 4 });
+
     breathingTimerRef.current = setInterval(() => {
-      setBreathCount(prev => {
-        if (prev === 1) {
-          // Switch phase
-          setBreathPhase(currentPhase => {
-            if (isPranayama) {
-              // 4-phase Sama Vritti (Square breath): Inspira -> Trattieni Pieno -> Espira -> Trattieni Vuoto
-              switch (currentPhase) {
-                case "inspira": return "trattieni_pieno";
-                case "trattieni_pieno": return "espira";
-                case "espira": return "trattieni_vuoto";
-                case "trattieni_vuoto": return "inspira";
-                default: return "inspira";
-              }
-            } else {
-              // Standard 2-phase: Inspira -> Espira
-              return currentPhase === "inspira" ? "espira" : "inspira";
+      setBreath(prev => {
+        if (prev.count === 1) {
+          let nextPhase: typeof prev.phase = "inspira";
+          if (isPranayama) {
+            // Sama Vritti: Inspira -> Trattieni Pieno -> Espira -> Trattieni Vuoto
+            switch (prev.phase) {
+              case "inspira": nextPhase = "trattieni_pieno"; break;
+              case "trattieni_pieno": nextPhase = "espira"; break;
+              case "espira": nextPhase = "trattieni_vuoto"; break;
+              case "trattieni_vuoto": nextPhase = "inspira"; break;
             }
-          });
-          return 4; // Reset to 4 seconds
+          } else {
+            // Standard 2-phase: Inspira -> Espira
+            nextPhase = prev.phase === "inspira" ? "espira" : "inspira";
+          }
+          return { phase: nextPhase, count: 4 };
         }
-        return prev - 1;
+        return { phase: prev.phase, count: prev.count - 1 };
       });
     }, 1000);
 
@@ -433,7 +552,7 @@ export default function App() {
         clearInterval(breathingTimerRef.current);
       }
     };
-  }, [currentStepIndex]);
+  }, [currentStepIndex, isPlaying]);
 
   // Navigate back to welcome screen
   const exitPractice = () => {
@@ -610,7 +729,7 @@ export default function App() {
               <Flower2 className="w-5 h-5 stroke-[2.2]" />
             </div>
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-[#2d3e35] font-serif">Hatha Yoga <span className="font-light opacity-60 italic">Essenza</span></h1>
+              <h1 className="text-lg font-bold tracking-tight text-[#2d3e35] font-serif">Hata Yoga <span className="font-light opacity-60 italic">by Luemy</span></h1>
               <p className="text-[9px] font-mono uppercase tracking-widest text-[#7ba691] font-bold">Guida per Principianti</p>
             </div>
           </div>
@@ -763,13 +882,13 @@ export default function App() {
                 <div className="space-y-3">
                   <div className="inline-flex items-center gap-1 bg-white/40 border border-white/50 px-3.5 py-1 rounded-full text-xs text-[#2d3e35] font-medium backdrop-blur-md">
                     <Sparkle className="w-3.5 h-3.5 fill-[#7ba691]/20 text-[#7ba691] animate-spin-slow" />
-                    Hatha Yoga Tradizionale per Tutti
+                    Hata Yoga Tradizionale per Tutti
                   </div>
                   <h2 className="text-4xl md:text-5xl font-serif text-[#1a2b23] tracking-tight leading-tight italic font-medium">
                     Ritrova l'equilibrio con la tua prima sequenza.
                   </h2>
                   <p className="text-[#2d3e35]/80 leading-relaxed text-sm md:text-base">
-                    Una pratica guidata di Hatha Yoga strutturata scientificamente per principianti. 
+                    Una pratica guidata di Hata Yoga strutturata scientificamente per principianti. 
                     Migliora la flessibilità, calma la mente e impara a fluire con il tuo respiro, 
                     accompagnato dalla voce calda e rassicurante della nostra guida.
                   </p>
@@ -787,8 +906,8 @@ export default function App() {
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-5 gap-2" id="duration_selector">
-                    {[10, 15, 20, 30, 45].map((mins) => (
+                  <div className="grid grid-cols-3 gap-2" id="duration_selector">
+                    {[15, 30, 45].map((mins) => (
                       <button
                         key={mins}
                         onClick={() => setDuration(mins)}
@@ -806,7 +925,6 @@ export default function App() {
                     * La durata regola la lunghezza delle pause silenziose tra ogni asana, adattando il ritmo della tenuta al tempo selezionato.
                   </p>
                 </div>
-
                 {/* Primary CTA Block */}
                 <div className="flex flex-col sm:flex-row gap-3">
                   <button
@@ -814,6 +932,9 @@ export default function App() {
                       setCurrentStepIndex(0);
                       setScreen("practice");
                       setIsPlaying(true);
+                      setPracticePhase("narration");
+                      setTotalSecondsRemaining(duration * 60);
+                      setCurrentHoldRemaining(calculatedHoldTime);
                     }}
                     className="flex-1 bg-[#2d3e35] hover:bg-[#1a2b23] text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-[#2d3e35]/15 hover:shadow-lg flex items-center justify-center gap-2 text-base"
                     id="start_practice_btn"
@@ -821,76 +942,7 @@ export default function App() {
                     <Play className="w-5 h-5 fill-white" />
                     Inizia la Pratica Online
                   </button>
-
-                  <button
-                    onClick={downloadCombinedAudio}
-                    disabled={downloadState !== "idle" && downloadState !== "completed" && downloadState !== "error"}
-                    className="relative overflow-hidden bg-white/40 backdrop-blur-md border border-white/50 hover:bg-white/60 text-[#2d3e35] font-bold py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 text-base shadow-sm disabled:opacity-80 disabled:cursor-not-allowed"
-                    id="download_mp3_btn"
-                  >
-                    {/* Progress indicator background overlay */}
-                    {downloadState === "downloading" && (
-                      <div 
-                        className="absolute inset-y-0 left-0 bg-[#7ba691]/20 transition-all duration-300"
-                        style={{ width: `${downloadProgress}%` }}
-                      />
-                    )}
-                    
-                    {/* Content */}
-                    <div className="relative z-10 flex items-center gap-2">
-                      {downloadState === "idle" && (
-                        <>
-                          <Download className="w-5 h-5 text-[#7ba691]" />
-                          <span>Scarica l'Intero Audio (WAV)</span>
-                        </>
-                      )}
-                      
-                      {downloadState === "preparing" && (
-                        <>
-                          <Loader2 className="w-5 h-5 text-[#7ba691] animate-spin" />
-                          <span>Generazione in corso...</span>
-                        </>
-                      )}
-                      
-                      {downloadState === "downloading" && (
-                        <>
-                          <Loader2 className="w-5 h-5 text-[#7ba691] animate-spin" />
-                          <span>Download: {downloadProgress}%</span>
-                        </>
-                      )}
-                      
-                      {downloadState === "completed" && (
-                        <>
-                          <CheckCircle2 className="w-5 h-5 text-emerald-600 animate-bounce" />
-                          <span className="text-emerald-800">Pronto! Salvato</span>
-                        </>
-                      )}
-                      
-                      {downloadState === "error" && (
-                        <>
-                          <AlertCircle className="w-5 h-5 text-rose-600" />
-                          <span className="text-rose-700">{downloadError || "Riprova più tardi"}</span>
-                        </>
-                      )}
-                    </div>
-                  </button>
                 </div>
-
-                {downloadState === "error" && (
-                  <div className="bg-rose-50/60 border border-rose-200 p-3.5 rounded-xl text-xs text-rose-800 leading-relaxed space-y-1">
-                    <p className="font-bold flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
-                      Come risolvere l'errore sui 30 minuti?
-                    </p>
-                    <p>
-                      La generazione in formato WAV di una sessione intera (come quella da 30, 45 o 90 minuti) richiede la sintesi vocale premium di tutte le asana. 
-                      Se la chiave API condivisa ha esaurito la quota giornaliera, l'operazione fallisce.
-                    </p>
-                    <p className="font-semibold">
-                      👉 Clicca sul pulsante <strong className="underline cursor-pointer" onClick={() => setShowSettings(true)}>"Sblocca Limite (API)"</strong> in alto a destra e inserisci la tua chiave gratuita personale per risolvere istantaneamente!
-                    </p>
-                  </div>
-                )}
 
                 {/* Status & Quota Explanation Banners */}
                 {cacheStatus.cachedCount < cacheStatus.totalCount ? (
@@ -900,7 +952,7 @@ export default function App() {
                       Sintesi Vocale Premium in Preparazione ({cacheStatus.cachedCount}/{cacheStatus.totalCount} asana pronte)
                     </p>
                     <p>
-                      La sintesi vocale avanzata (AI) ha un limite giornaliero di generazione gratuito. Di conseguenza, alcune posizioni useranno dei silenzi meditativi nel file audio scaricabile.
+                      La sintesi vocale avanzata (AI) ha un limite giornaliero di generazione gratuito. Di conseguenza, alcune posizioni useranno la voce di sistema del browser per la guida online.
                     </p>
                     <p className="text-amber-950 bg-white/40 p-2.5 rounded-xl border border-white/60">
                       💡 <strong>Consiglio di Pratica</strong>: Avvia la <strong>"Pratica Online"</strong>! Il browser utilizzerà in automatico la propria voce di sistema (gratuita e illimitata) per darti una guida vocale completa al 100% per tutte le asana!
@@ -913,7 +965,7 @@ export default function App() {
                       Sintesi Vocale Premium Pronta al 100%!
                     </p>
                     <p>
-                      Tutte le {cacheStatus.totalCount} asana sono state sintetizzate con voce AI ultra-realistica. Puoi scaricare l'audio completo (WAV) o praticare online con la massima qualità!
+                      Tutte le {cacheStatus.totalCount} asana sono state sintetizzate con voce AI ultra-realistica. Puoi praticare online con la massima qualità!
                     </p>
                   </div>
                 )}
@@ -927,12 +979,12 @@ export default function App() {
                     Struttura della Sequenza
                   </h3>
                   <span className="text-[10px] uppercase font-mono font-bold bg-white/30 text-[#2d3e35] px-2 py-0.5 rounded border border-white/40">
-                    {YOGA_SEQUENCE.length} Passi
+                    {activeSequence.length} Passi
                   </span>
                 </div>
 
                 <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-2" id="sequence_list_outline">
-                  {YOGA_SEQUENCE.map((step, idx) => {
+                  {activeSequence.map((step, idx) => {
                     const stepTheme = getCategoryTheme(step.category);
                     return (
                       <div 
@@ -1021,16 +1073,16 @@ export default function App() {
                     
                     {/* Center Core Orb */}
                     <div className={`w-28 h-28 rounded-full bg-gradient-to-br ${theme.orbColor} text-white flex flex-col items-center justify-center shadow-lg transition-transform duration-1000 ${
-                      breathPhase === "inspira" ? "scale-110" : "scale-90"
+                      breath.phase === "inspira" ? "scale-110" : "scale-90"
                     }`}>
                       <span className="text-[11px] font-bold tracking-widest uppercase font-mono">
-                        {breathPhase === "inspira" && "Inspira"}
-                        {breathPhase === "espira" && "Espira"}
-                        {breathPhase === "trattieni_pieno" && "Trattieni"}
-                        {breathPhase === "trattieni_vuoto" && "Trattieni"}
+                        {breath.phase === "inspira" && "Inspira"}
+                        {breath.phase === "espira" && "Espira"}
+                        {breath.phase === "trattieni_pieno" && "Trattieni"}
+                        {breath.phase === "trattieni_vuoto" && "Trattieni"}
                       </span>
                       <span className="text-3xl font-extrabold font-mono mt-0.5">
-                        {breathCount}
+                        {breath.count}
                       </span>
                       <span className="text-[9px] opacity-85 mt-0.5"> secondi </span>
                     </div>
@@ -1038,10 +1090,10 @@ export default function App() {
 
                   <div className="text-center">
                     <p className="text-xs font-medium text-[#2d3e35]/80 italic px-4">
-                      {breathPhase === "inspira" && "Lascia che l'addome si espanda spontaneamente."}
-                      {breathPhase === "espira" && "Rilascia le spalle e sgonfia delicatamente la pancia."}
-                      {breathPhase === "trattieni_pieno" && "Mantieni la calma a polmoni pieni."}
-                      {breathPhase === "trattieni_vuoto" && "Assapora la quiete del vuoto interiore."}
+                      {breath.phase === "inspira" && "Lascia che l'addome si espanda spontaneamente."}
+                      {breath.phase === "espira" && "Rilascia le spalle e sgonfia delicatamente la pancia."}
+                      {breath.phase === "trattieni_pieno" && "Mantieni la calma a polmoni pieni."}
+                      {breath.phase === "trattieni_vuoto" && "Assapora la quiete del vuoto interiore."}
                     </p>
                   </div>
                 </div>
@@ -1058,21 +1110,29 @@ export default function App() {
                     <div className="flex justify-between items-center">
                       <div className="space-y-1">
                         <span className="text-[10px] font-mono uppercase tracking-wider text-[#2d3e35]/55 font-bold">
-                          Passo {currentStepIndex + 1} di {YOGA_SEQUENCE.length}
+                          Passo {currentStepIndex + 1} di {activeSequence.length} • Tempo Rimasto: {formatTime(totalSecondsRemaining)}
                         </span>
                         <h3 className="text-xl font-bold text-[#1a2b23] font-serif">
                           Guida all'Esecuzione
                         </h3>
                       </div>
-                      <div className="flex items-center gap-1.5 bg-white/40 border border-white/50 px-3 py-1 rounded-full text-xs font-mono font-bold text-[#2d3e35]/80 shadow-sm">
-                        <Clock className="w-3.5 h-3.5 text-[#2d3e35]/50" />
-                        Hold: 40s
+                      <div className="flex items-center gap-1.5 bg-white/40 border border-white/50 px-3 py-1 rounded-full text-xs font-mono font-bold text-[#2d3e35]/80 shadow-sm transition-all duration-300">
+                        <Clock className="w-3.5 h-3.5 text-[#7ba691] animate-pulse" />
+                        {practicePhase === "narration" ? (
+                          <span className="text-[#7ba691] animate-pulse">Ascolto...</span>
+                        ) : (
+                          <span>Tenuta: {currentHoldRemaining}s</span>
+                        )}
                       </div>
                     </div>
 
                     {/* Step Timeline Progress Indicator */}
-                    <div className="grid grid-cols-23 gap-1 py-2" id="interactive_timeline">
-                      {YOGA_SEQUENCE.map((step, idx) => {
+                    <div 
+                      className="grid gap-1 py-2" 
+                      id="interactive_timeline"
+                      style={{ gridTemplateColumns: `repeat(${activeSequence.length}, minmax(0, 1fr))` }}
+                    >
+                      {activeSequence.map((step, idx) => {
                         const isCurrent = idx === currentStepIndex;
                         const isPast = idx < currentStepIndex;
                         return (
@@ -1207,11 +1267,11 @@ export default function App() {
 
                     <button
                       onClick={() => {
-                        if (currentStepIndex < YOGA_SEQUENCE.length - 1) {
+                        if (currentStepIndex < activeSequence.length - 1) {
                           setCurrentStepIndex(prev => prev + 1);
                         }
                       }}
-                      disabled={currentStepIndex === YOGA_SEQUENCE.length - 1}
+                      disabled={currentStepIndex === activeSequence.length - 1}
                       className="p-2.5 rounded-full hover:bg-white/20 text-[#2d3e35] disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
                       title="Passo Successivo"
                     >
@@ -1228,6 +1288,19 @@ export default function App() {
                         <VolumeX className="w-5 h-5" />
                       ) : (
                         <Volume2 className="w-5 h-5" />
+                      )}
+                    </button>
+
+                    {/* Chime Toggle Button */}
+                    <button
+                      onClick={() => setIsChimeEnabled(prev => !prev)}
+                      className="p-2.5 rounded-full hover:bg-white/20 text-[#2d3e35] transition-colors"
+                      title={isChimeEnabled ? "Disattiva Campana" : "Attiva Campana"}
+                    >
+                      {isChimeEnabled ? (
+                        <Bell className="w-5 h-5 text-[#7ba691]" />
+                      ) : (
+                        <BellOff className="w-5 h-5 text-gray-400" />
                       )}
                     </button>
                   </div>
@@ -1284,17 +1357,126 @@ export default function App() {
             </motion.div>
           )}
 
+          {/* SESSION COMPLETED SCREEN */}
+          {screen === "completed" && (
+            <motion.div
+              key="completed"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="max-w-md mx-auto bg-white/40 backdrop-blur-md p-8 rounded-3xl border border-white/50 shadow-xl space-y-6 text-center"
+            >
+              <div className="flex flex-col items-center space-y-3">
+                <div className="w-16 h-16 rounded-full bg-[#d1e7dd] flex items-center justify-center text-emerald-800 shadow-inner">
+                  <Flower2 className="w-9 h-9 animate-spin-slow" />
+                </div>
+                <h2 className="text-3xl font-serif font-bold text-[#1a2b23] mt-2">
+                  Sessione Completata!
+                </h2>
+                <p className="text-xs text-[#2d3e35]/80 max-w-xs leading-relaxed">
+                  Complimenti per esserti dedicato questo tempo. La tua mente e il tuo corpo ti ringraziano. Namastè.
+                </p>
+              </div>
+
+              <div className="bg-white/30 border border-white/40 rounded-2xl p-5 space-y-1.5 shadow-sm text-left">
+                <div className="flex justify-between text-xs text-[#2d3e35]/70">
+                  <span>Pratica Eseguita:</span>
+                  <span className="font-bold text-[#1a2b23]">Hata Yoga Sequenza</span>
+                </div>
+                <div className="flex justify-between text-xs text-[#2d3e35]/70">
+                  <span>Durata Totale:</span>
+                  <span className="font-bold text-[#1a2b23]">{duration} minuti</span>
+                </div>
+                <div className="flex justify-between text-xs text-[#2d3e35]/70">
+                  <span>Asana Eseguite:</span>
+                  <span className="font-bold text-[#1a2b23]">{activeSequence.length} posizioni</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={downloadCombinedAudio}
+                  disabled={downloadState !== "idle" && downloadState !== "completed" && downloadState !== "error"}
+                  className="relative overflow-hidden w-full bg-[#2d3e35] hover:bg-[#1a2b23] text-white font-bold py-4 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 text-base shadow-md disabled:opacity-85 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {/* Progress indicator background overlay */}
+                  {downloadState === "downloading" && (
+                    <div 
+                      className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-300"
+                      style={{ width: `${downloadProgress}%` }}
+                    />
+                  )}
+                  
+                  {/* Content */}
+                  <div className="relative z-10 flex items-center gap-2">
+                    {downloadState === "idle" && (
+                      <>
+                        <Download className="w-5 h-5 text-[#7ba691]" />
+                        <span>Scarica l'Audio della Lezione (WAV)</span>
+                      </>
+                    )}
+                    
+                    {downloadState === "preparing" && (
+                      <>
+                        <Loader2 className="w-5 h-5 text-[#7ba691] animate-spin" />
+                        <span>Generazione file audio...</span>
+                      </>
+                    )}
+                    
+                    {downloadState === "downloading" && (
+                      <>
+                        <Loader2 className="w-5 h-5 text-[#7ba691] animate-spin" />
+                        <span>Esportazione: {downloadProgress}%</span>
+                      </>
+                    )}
+                    
+                    {downloadState === "completed" && (
+                      <>
+                        <CheckCircle2 className="w-5 h-5 text-emerald-300 animate-bounce" />
+                        <span className="text-emerald-100">Audio Scaricato con Successo!</span>
+                      </>
+                    )}
+                    
+                    {downloadState === "error" && (
+                      <>
+                        <AlertCircle className="w-5 h-5 text-rose-300" />
+                        <span className="text-rose-200">{downloadError || "Riprova più tardi"}</span>
+                      </>
+                    )}
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setScreen("welcome");
+                    setDownloadState("idle");
+                    setDownloadProgress(0);
+                  }}
+                  className="w-full bg-white/40 border border-white/50 hover:bg-white/60 text-[#2d3e35] font-bold py-3.5 px-6 rounded-2xl transition-all text-sm shadow-sm cursor-pointer"
+                >
+                  Torna alla Home
+                </button>
+              </div>
+
+              {downloadState === "completed" && (
+                <p className="text-[10px] text-emerald-800 font-bold bg-emerald-500/10 px-3 py-2 rounded-xl border border-emerald-500/20 text-center animate-pulse">
+                  Salva il file sul tuo dispositivo per ascoltare l'audio della lezione personalizzato in qualsiasi momento!
+                </p>
+              )}
+            </motion.div>
+          )}
+
         </AnimatePresence>
       </main>
 
       {/* FOOTER */}
       <footer className="relative z-10 border-t border-white/20 bg-white/5 backdrop-blur-md py-6 text-center text-xs text-[#2d3e35]/65">
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-3">
-          <p>© 2026 Hatha Yoga per Principianti. Tutti i diritti riservati.</p>
+          <p>© 2026 Hata Yoga by Luemy. Tutti i diritti riservati.</p>
           <div className="flex gap-4 font-medium">
             <span className="hover:text-[#2d3e35] transition-colors cursor-pointer">Respirazione Consapevole</span>
             <span>•</span>
-            <span className="hover:text-[#2d3e35] transition-colors cursor-pointer">Hatha Yoga</span>
+            <span className="hover:text-[#2d3e35] transition-colors cursor-pointer">Hata Yoga</span>
             <span>•</span>
             <span className="hover:text-[#2d3e35] transition-colors cursor-pointer">Meditazione</span>
           </div>
