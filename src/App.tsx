@@ -83,11 +83,11 @@ export default function App() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [autoPlayNext, setAutoPlayNext] = useState(true);
-  const [duration, setDuration] = useState(15); // Session duration in minutes
+  const [duration, setDuration] = useState(30); // Session duration in minutes
   const [isMuted, setIsMuted] = useState(false);
   const [practicePhase, setPracticePhase] = useState<"narration" | "hold">("narration");
   const [currentHoldRemaining, setCurrentHoldRemaining] = useState(30);
-  const [totalSecondsRemaining, setTotalSecondsRemaining] = useState(15 * 60);
+  const [totalSecondsRemaining, setTotalSecondsRemaining] = useState(30 * 60);
   const [isChimeEnabled, setIsChimeEnabled] = useState(true);
   
   // Cache check status
@@ -907,7 +907,7 @@ export default function App() {
                   </div>
 
                   <div className="grid grid-cols-3 gap-2" id="duration_selector">
-                    {[15, 30, 45].map((mins) => (
+                    {[30, 45, 60].map((mins) => (
                       <button
                         key={mins}
                         onClick={() => setDuration(mins)}
@@ -921,8 +921,8 @@ export default function App() {
                       </button>
                     ))}
                   </div>
-                  <p className="text-[11px] text-[#2d3e35]/60 leading-relaxed">
-                    * La durata regola la lunghezza delle pause silenziose tra ogni asana, adattando il ritmo della tenuta al tempo selezionato.
+                  <p className="text-[11px] text-[#2d3e35]/65 leading-relaxed">
+                    * La sequenza completa di 23 asana viene sempre eseguita. Selezionando una durata maggiore (es. 45 o 60 minuti), aumenterà il tempo di mantenimento silenzioso in ogni posizione, favorendo una pratica e una respirazione più profonde.
                   </p>
                 </div>
                 {/* Primary CTA Block */}
@@ -1152,57 +1152,28 @@ export default function App() {
                       })}
                     </div>
 
-                    {/* Description Tabs */}
-                    <div className="flex border-b border-white/20 gap-4" id="instruction_tabs">
-                      {[
-                        { id: "entrata", label: "1. Entrata" },
-                        { id: "mantenimento", label: "2. Mantenimento" },
-                        { id: "uscita", label: "3. Uscita" }
-                      ].map((tab) => (
-                        <button
-                          key={tab.id}
-                          onClick={() => setActiveTab(tab.id as any)}
-                          className={`pb-2.5 text-xs font-bold border-b-2 transition-all ${
-                            activeTab === tab.id
-                              ? "border-[#7ba691] text-[#2d3e35]"
-                              : "border-transparent text-[#2d3e35]/40 hover:text-[#2d3e35]/65"
-                          }`}
-                        >
-                          {tab.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Tab Contents */}
-                    <div className="py-2">
-                      <AnimatePresence mode="wait">
-                        <motion.div
-                          key={activeTab}
-                          initial={{ opacity: 0, x: 5 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          exit={{ opacity: 0, x: -5 }}
-                          transition={{ duration: 0.15 }}
-                          className="text-[#2d3e35]/85 leading-relaxed text-sm min-h-[140px]"
-                        >
-                          {activeTab === "entrata" && (
-                            <p>{currentStep.description.entrata}</p>
-                          )}
-                          {activeTab === "mantenimento" && (
-                            <div className="space-y-3">
-                              <p className="font-semibold text-[#1a2b23] bg-white/40 p-4 rounded-xl border border-white/50 shadow-sm italic pl-4 border-l-2 border-l-[#7ba691]">
-                                {currentStep.description.mantenimento}
-                              </p>
-                              <div className="flex gap-2 items-start text-xs text-[#2d3e35]/60 bg-white/20 p-2.5 rounded-lg border border-white/30">
-                                <Info className="w-3.5 h-3.5 text-[#2d3e35]/40 shrink-0 mt-0.5" />
-                                <span>Concentrati sull'allungamento e mantieni fermo lo sguardo. Respira ad ogni allungamento.</span>
-                              </div>
-                            </div>
-                          )}
-                          {activeTab === "uscita" && (
-                            <p>{currentStep.description.uscita}</p>
-                          )}
-                        </motion.div>
-                      </AnimatePresence>
+                    {/* Unified Instruction Panel */}
+                    <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1" id="instruction_panel">
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-[#7ba691]">1. Entrata</span>
+                        <p className="text-xs text-[#2d3e35]/85 leading-relaxed bg-white/25 p-3.5 rounded-2xl border border-white/40 shadow-sm">{currentStep.description.entrata}</p>
+                      </div>
+                      
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-[#7ba691]">2. Mantenimento Guidato (40 secondi)</span>
+                        <div className="p-4 rounded-2xl border border-white/50 shadow-sm bg-white/45 border-l-4 border-l-[#7ba691]">
+                          <p className="text-xs font-semibold text-[#1a2b23] leading-relaxed italic">{currentStep.description.mantenimento}</p>
+                          <div className="flex gap-2 items-start text-[10px] text-[#2d3e35]/65 mt-3">
+                            <Info className="w-3.5 h-3.5 text-[#2d3e35]/40 shrink-0 mt-0.5" />
+                            <span>Concentrati sull'allungamento e mantieni fermo lo sguardo. Respira ad ogni allungamento.</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1.5">
+                        <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-[#7ba691]">3. Uscita</span>
+                        <p className="text-xs text-[#2d3e35]/85 leading-relaxed bg-white/25 p-3.5 rounded-2xl border border-white/40 shadow-sm">{currentStep.description.uscita}</p>
+                      </div>
                     </div>
                   </div>
 
