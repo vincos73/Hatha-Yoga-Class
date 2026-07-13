@@ -1,0 +1,6 @@
+{
+  "name": "Sequenza Yoga Hatha per Principianti",
+  "description": "Un'applicazione web interattiva che guida l'utente attraverso una sequenza completa di Yoga Hatha per principianti, con descrizioni dettagliate e guida vocale rassicurante personalizzabile nella durata.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
