@@ -2,7 +2,6 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
 import { YOGA_SEQUENCE, getSequenceForDuration, type YogaStep } from "./src/data/yogaSequence.js";
 
@@ -11,16 +10,6 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 const PORT = parseInt(process.env.PORT || "", 10) || 3001;
-
-// Initialize GoogleGenAI client with the required User-Agent
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      "User-Agent": "aistudio-build",
-    },
-  },
-});
 
 const CACHE_DIR = path.join(process.cwd(), "audio-cache");
 if (!fs.existsSync(CACHE_DIR)) {
