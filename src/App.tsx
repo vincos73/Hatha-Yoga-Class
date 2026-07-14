@@ -144,8 +144,8 @@ export default function App() {
   const saveApiKey = (key: string) => {
     const trimmed = key.trim();
     if (trimmed) {
-      // Warm up cache immediately with the new key and verify it!
-      fetch("/api/cache-warmup", {
+      // Validate the key without consuming TTS quota
+      fetch("/api/validate-key", {
         method: "POST",
         headers: { "x-gemini-api-key": trimmed }
       })

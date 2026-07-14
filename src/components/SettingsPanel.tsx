@@ -46,7 +46,7 @@ export function SettingsPanel({ showSettings, customApiKey, keySaveSuccess, onCl
                 <li>Vai su <a href="https://aistudio.google.com/" target="_blank" rel="noopener noreferrer" className="text-[#7ba691] underline font-bold hover:text-[#5a8671]">Google AI Studio</a></li>
                 <li>Accedi con il tuo account Google e clicca su <strong>"Get API key"</strong></li>
                 <li>Crea una nuova chiave (gratuita) e incollala qui sotto</li>
-                <li>Le chiavi personali gratuite supportano fino a <strong>15 richieste al minuto</strong>, sbloccando completamente l'errore dei 30 minuti!</li>
+                <li>Nota: anche le chiavi personali gratuite hanno limiti specifici per i modelli TTS (poche generazioni al minuto e un tetto giornaliero). Gli audio già generati restano in cache, quindi la libreria si completa in più riprese.</li>
               </ol>
             </div>
 

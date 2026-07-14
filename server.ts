@@ -224,14 +224,22 @@ async function warmStepsInBackground(steps: YogaStep[], customApiKey?: string): 
 
         if (mantenimentoText.trim()) {
           await getStepAudioPCM(step.id, mantenimentoText, false, customApiKey, `${step.id}_mantenimento`);
+          if (uscitaText.trim()) {
+            // Pause between the two phase generations to respect TTS RPM limits
+            await new Promise(r => setTimeout(r, 10000));
+          }
         }
         if (uscitaText.trim()) {
           await getStepAudioPCM(step.id, uscitaText, false, customApiKey, `${step.id}_uscita`);
         }
-        // Wait to respect rate limits (4s if custom, 21s if shared/default)
-        const delay = customApiKey ? 4000 : 21000;
+        // Wait to respect rate limits (TTS preview models allow only a few requests per minute)
+        const delay = customApiKey ? 20000 : 21000;
         await new Promise(r => setTimeout(r, delay));
       } catch (err) {
+        if ((err as any)?.message === "CustomApiKeyQuotaExceeded") {
+          console.log("[TTS Cache] Custom API key quota exhausted. Stopping warmup loop.");
+          break;
+        }
         console.log(`[TTS Cache] Soft bypass for ${step.id}:`, err);
       }
     }
@@ -272,6 +280,37 @@ app.get("/api/cache-status", (req, res) => {
     cooldownRemaining: Math.max(0, Math.round((cloudTtsBypassedUntil - Date.now()) / 1000)),
     hasServerApiKey: !!process.env.GEMINI_API_KEY
   });
+});
+
+// API: Validate a custom Gemini API key without triggering any TTS generation (avoids burning quota)
+app.post("/api/validate-key", async (req, res) => {
+  const customApiKey = req.headers["x-gemini-api-key"] as string | undefined;
+  if (!customApiKey) {
+    res.status(400).json({ error: "Nessuna chiave API fornita." });
+    return;
+  }
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models`;
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        "User-Agent": "aistudio-build",
+        "x-goog-api-key": customApiKey
+      }
+    });
+
+    if (!response.ok) {
+      const errJson = await response.json().catch(() => ({}));
+      const errMsg = errJson.error?.message || `HTTP error! status: ${response.status}`;
+      throw new Error(errMsg);
+    }
+
+    res.json({ valid: true });
+  } catch (error: any) {
+    console.error("[TTS Cache] Custom API Key validation failed:", error);
+    res.status(400).json({ error: `La chiave API Gemini inserita non è valida: ${error.message || error}` });
+  }
 });
 
 // API: Trigger background pre-generation of all step voice audios
