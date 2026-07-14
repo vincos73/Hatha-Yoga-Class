@@ -157,20 +157,25 @@ export default function App() {
     });
   };
 
+  // Compute the id of the opposite-side twin step by swapping the known suffixes
+  const getCounterpartStepId = (stepId: string): string | null => {
+    if (stepId.endsWith("_sinistro")) return stepId.slice(0, -"_sinistro".length) + "_destro";
+    if (stepId.endsWith("_destro")) return stepId.slice(0, -"_destro".length) + "_sinistro";
+    if (stepId.endsWith("_sinistra")) return stepId.slice(0, -"_sinistra".length) + "_destra";
+    if (stepId.endsWith("_destra")) return stepId.slice(0, -"_destra".length) + "_sinistra";
+    return null;
+  };
+
   const toggleStepSide = (index: number) => {
     setCustomSequence(prev => {
+      const step = prev[index];
+      if (!step.side || step.side === "entrambi") return prev;
+      const counterpartId = getCounterpartStepId(step.id);
+      if (!counterpartId) return prev;
+      const counterpart = YOGA_SEQUENCE.find(s => s.id === counterpartId);
+      if (!counterpart) return prev;
       const copy = [...prev];
-      const step = copy[index];
-      if (!step.side) return prev;
-      let nextSide: 'sinistro' | 'destro' | 'entrambi' = 'entrambi';
-      if (step.side === "sinistro") {
-        nextSide = "destro";
-      } else if (step.side === "destro") {
-        nextSide = "entrambi";
-      } else {
-        nextSide = "sinistro";
-      }
-      copy[index] = { ...step, side: nextSide };
+      copy[index] = { ...counterpart };
       return copy;
     });
   };
@@ -211,10 +216,9 @@ export default function App() {
     const trimmed = key.trim();
     if (trimmed) {
       // Warm up cache immediately with the new key and verify it!
-      const url = `/api/cache-warmup?apiKey=${encodeURIComponent(trimmed)}`;
-      fetch(url, { 
-        method: "POST", 
-        headers: { "x-gemini-api-key": trimmed } 
+      fetch("/api/cache-warmup", {
+        method: "POST",
+        headers: { "x-gemini-api-key": trimmed }
       })
         .then(async (res) => {
           if (!res.ok) {
@@ -258,6 +262,8 @@ export default function App() {
   const totalDurationSec = duration * 60;
   const numPauses = Math.max(1, activeSequence.length - 1);
   const calculatedHoldTime = Math.max(5, Math.round((totalDurationSec - totalSpeechSec) / numPauses));
+  // Custom Builder sequences always hold 10s (as advertised in the builder UI); quick sessions use the calculated pacing
+  const holdTimeSec = isPlayingCustom ? 10 : calculatedHoldTime;
 
   const currentStep = activeSequence[currentStepIndex] || activeSequence[0] || YOGA_SEQUENCE[0];
 
@@ -291,22 +297,9 @@ export default function App() {
   const customHasBreathing = customSequence.some(s => s.category === "respirazione");
   const customLongSequenceTip = customSequence.length > 6 && !customHasBreathing;
 
-  // Check cache status and trigger warmup when duration changes
+  // Check cache status when duration changes (warmup stays manual, see startCacheWarmup)
   useEffect(() => {
     fetchCacheStatus();
-    
-    // Warmup cache silently in the background
-    const headers: Record<string, string> = {};
-    const storedKey = localStorage.getItem("custom_gemini_api_key");
-    if (storedKey) {
-      headers["x-gemini-api-key"] = storedKey;
-    }
-    const url = storedKey 
-      ? `/api/cache-warmup?duration=${duration}&apiKey=${encodeURIComponent(storedKey)}` 
-      : `/api/cache-warmup?duration=${duration}`;
-    fetch(url, { method: "POST", headers })
-      .then(() => console.log(`Cache warmup started for duration ${duration}...`))
-      .catch(err => console.log("Silent warmup error:", err));
   }, [duration]);
 
   const fetchCacheStatus = async () => {
@@ -343,11 +336,8 @@ export default function App() {
       if (storedKey) {
         headers["x-gemini-api-key"] = storedKey;
       }
-      const url = storedKey 
-        ? `/api/cache-warmup?duration=${duration}&apiKey=${encodeURIComponent(storedKey)}` 
-        : `/api/cache-warmup?duration=${duration}`;
-      
-      await fetch(url, { method: "POST", headers });
+
+      await fetch(`/api/cache-warmup?duration=${duration}`, { method: "POST", headers });
       
       // Poll cache status every 2 seconds to show real progress
       const interval = setInterval(async () => {
@@ -391,11 +381,8 @@ export default function App() {
       if (storedKey) {
         headers["x-gemini-api-key"] = storedKey;
       }
-      const url = storedKey 
-        ? `/api/audio-download?duration=${duration}&apiKey=${encodeURIComponent(storedKey)}` 
-        : `/api/audio-download?duration=${duration}`;
-      
-      const response = await fetch(url, { headers });
+
+      const response = await fetch(`/api/audio-download?duration=${duration}`, { headers });
       if (!response.ok) {
         let errMsg = "Errore durante la generazione dell'audio.";
         try {
@@ -643,7 +630,7 @@ export default function App() {
 
           utterance.onend = () => {
             setPracticePhase("hold");
-            setCurrentHoldRemaining(10);
+            setCurrentHoldRemaining(holdTimeSec);
             if (isChimeEnabled && !isMuted) {
               playSingingBowlChime(220); // standard warm chime
             }
@@ -689,39 +676,55 @@ export default function App() {
       };
     } else {
       // AI Mode
+      let objectUrl: string | null = null;
+      let cancelled = false;
+
       if (isPlaying && (practicePhase === "narration" || practicePhase === "uscita")) {
         const storedKey = localStorage.getItem("custom_gemini_api_key");
-        const audioUrl = `/api/audio/${currentStep.id}?phase=${practicePhase === "uscita" ? "uscita" : "mantenimento"}${storedKey ? `&apiKey=${encodeURIComponent(storedKey)}` : ""}`;
-        const audio = new Audio(audioUrl);
-        audioRef.current = audio;
-        audio.muted = isMuted;
+        const headers: Record<string, string> = {};
+        if (storedKey) headers["x-gemini-api-key"] = storedKey;
 
-        audio.onended = () => {
-          if (practicePhase === "narration") {
-            setPracticePhase("hold");
-            setCurrentHoldRemaining(10);
-            if (isChimeEnabled && !isMuted) {
-              playSingingBowlChime(220); // standard warm chime
-            }
-          } else if (practicePhase === "uscita") {
-            handleUscitaEnd();
-          }
-        };
+        fetch(`/api/audio/${currentStep.id}?phase=${practicePhase === "uscita" ? "uscita" : "mantenimento"}`, { headers })
+          .then(async (res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const blob = await res.blob();
+            if (cancelled) return;
 
-        audio.onerror = (e) => {
-          console.warn("AI Voice failed or quota exceeded. Automatically falling back to browser system voice.", e);
-          setHasQuotaError(true);
-          setVoiceEngine("system");
-        };
+            objectUrl = URL.createObjectURL(blob);
+            const audio = new Audio(objectUrl);
+            audioRef.current = audio;
+            audio.muted = isMuted;
 
-        audio.play().catch(err => {
-          console.warn("Playback prevented or error:", err);
-          setHasQuotaError(true);
-          setVoiceEngine("system");
-        });
+            audio.onended = () => {
+              if (practicePhase === "narration") {
+                setPracticePhase("hold");
+                setCurrentHoldRemaining(holdTimeSec);
+                if (isChimeEnabled && !isMuted) {
+                  playSingingBowlChime(220); // standard warm chime
+                }
+              } else if (practicePhase === "uscita") {
+                handleUscitaEnd();
+              }
+            };
+
+            audio.onerror = (e) => {
+              console.warn("AI Voice failed or quota exceeded. Automatically falling back to browser system voice.", e);
+              setHasQuotaError(true);
+              setVoiceEngine("system");
+            };
+
+            return audio.play();
+          })
+          .catch(err => {
+            console.warn("Playback prevented or error:", err);
+            setHasQuotaError(true);
+            setVoiceEngine("system");
+          });
       }
 
       return () => {
+        cancelled = true;
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
         if (audioRef.current) {
           audioRef.current.pause();
           audioRef.current.onended = null;
@@ -1205,7 +1208,16 @@ export default function App() {
                           setIsPlaying(true);
                           setPracticePhase("narration");
                           setTotalSecondsRemaining(duration * 60);
-                          setCurrentHoldRemaining(10);
+
+                          // Recompute the hold time inline: holdTimeSec from the current render
+                          // may still reflect a stale isPlayingCustom value at click time
+                          const seq = getSequenceForDuration(duration, YOGA_SEQUENCE);
+                          const speechSec = seq.reduce((acc, s) => {
+                            const w = s.speechScript.split(/\s+/).filter(Boolean).length;
+                            return acc + Math.max(4, w / 2.2);
+                          }, 0);
+                          const hold = Math.max(5, Math.round((duration * 60 - speechSec) / Math.max(1, seq.length - 1)));
+                          setCurrentHoldRemaining(hold);
                         }}
                         className="flex-1 bg-[#2d3e35] hover:bg-[#1a2b23] text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-[#2d3e35]/15 hover:shadow-lg flex items-center justify-center gap-2 text-base"
                         id="start_practice_btn"
@@ -1540,6 +1552,8 @@ export default function App() {
                       <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
                         {customSequence.map((step, idx) => {
                           const stepTheme = getCategoryTheme(step.category);
+                          const counterpartId = step.side && step.side !== "entrambi" ? getCounterpartStepId(step.id) : null;
+                          const hasCounterpart = !!counterpartId && YOGA_SEQUENCE.some(s => s.id === counterpartId);
                           return (
                             <div 
                               key={`${step.id}_index_${idx}`}
@@ -1560,13 +1574,19 @@ export default function App() {
                                     {stepTheme.badge}
                                   </span>
                                   {step.side && (
-                                    <button
-                                      onClick={() => toggleStepSide(idx)}
-                                      className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-white/50 border border-white/60 text-[#2d3e35]/75 hover:bg-[#2d3e35] hover:text-white rounded font-mono transition-all"
-                                      title="Clicca per cambiare lato"
-                                    >
-                                      Lato: {step.side}
-                                    </button>
+                                    hasCounterpart ? (
+                                      <button
+                                        onClick={() => toggleStepSide(idx)}
+                                        className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-white/50 border border-white/60 text-[#2d3e35]/75 hover:bg-[#2d3e35] hover:text-white rounded font-mono transition-all"
+                                        title="Clicca per passare al lato opposto"
+                                      >
+                                        Lato: {step.side}
+                                      </button>
+                                    ) : (
+                                      <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-white/50 border border-white/60 text-[#2d3e35]/75 rounded font-mono">
+                                        Lato: {step.side}
+                                      </span>
+                                    )
                                   )}
                                 </div>
                               </div>

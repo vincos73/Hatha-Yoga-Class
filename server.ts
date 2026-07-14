@@ -80,6 +80,10 @@ function downsamplePCM2x(buffer: Buffer): Buffer {
 // Bypass cloud API requests if rate limited (cool-down period)
 let cloudTtsBypassedUntil = 0;
 
+// Minimal in-memory guard for the cache-warmup endpoint
+let warmupRunning = false;
+const warmupLastRequestByIp = new Map<string, number>();
+
 // Generate step audio PCM from Gemini or cache
 async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow = false, customApiKey?: string, cacheKey?: string): Promise<Buffer> {
   const key = cacheKey || stepId;
@@ -115,13 +119,14 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
     try {
       attempt++;
       
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent?key=${encodeURIComponent(apiKeyToUse)}`;
-      
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-tts-preview:generateContent`;
+
       const response = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "User-Agent": "aistudio-build"
+          "User-Agent": "aistudio-build",
+          "x-goog-api-key": apiKeyToUse
         },
         body: JSON.stringify({
           contents: [{ parts: [{ text: `Leggi con voce estremamente calma, rilassante, calda e rassicurante in italiano, facendo delle brevi pause naturali tra le frasi: ${speechScript}` }] }],
@@ -231,16 +236,31 @@ app.get("/api/cache-status", (req, res) => {
 app.post("/api/cache-warmup", async (req, res) => {
   const durationMin = parseInt(req.query.duration as string) || 15;
   const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
-  const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
-  
+  const customApiKey = req.headers["x-gemini-api-key"] as string | undefined;
+
+  // Minimal per-IP rate limit: at most one warmup request per minute
+  const ip = req.ip || "unknown";
+  if (Date.now() - (warmupLastRequestByIp.get(ip) || 0) < 60_000) {
+    res.status(429).json({ error: "Attendi un minuto prima di richiedere un nuovo preriscaldamento." });
+    return;
+  }
+  warmupLastRequestByIp.set(ip, Date.now());
+
+  // Avoid piling up multiple background warmups on the shared default key
+  if (warmupRunning && !customApiKey) {
+    res.status(429).json({ error: "Un preriscaldamento è già in corso. Riprova tra qualche minuto." });
+    return;
+  }
+
   // Verify API key before starting background warmup
   if (customApiKey) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(customApiKey)}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
-          "User-Agent": "aistudio-build"
+          "User-Agent": "aistudio-build",
+          "x-goog-api-key": customApiKey
         }
       });
       
@@ -263,36 +283,43 @@ app.post("/api/cache-warmup", async (req, res) => {
   
   // Warm up in background so response is non-blocking
   (async () => {
-    console.log(`[TTS Cache] Starting background cache warmup for ${durationMin}m (${activeSequence.length} steps)...`);
-    for (const step of activeSequence) {
-      // If we are currently rate-limited and NOT using a custom API key, wait until the cooldown expires
-      if (!customApiKey) {
-        while (Date.now() < cloudTtsBypassedUntil) {
-          const waitTime = Math.max(1000, cloudTtsBypassedUntil - Date.now());
-          console.log(`[TTS Cache] Rate limit cooldown active. Waiting ${Math.round(waitTime / 1000)}s before trying step: ${step.id}`);
-          await new Promise(r => setTimeout(r, waitTime));
-        }
-      }
-      
-      try {
-        const parts = step.speechScript.split(" | ");
-        const mantenimentoText = parts[0] || "";
-        const uscitaText = parts[1] || "";
-        
-        if (mantenimentoText.trim()) {
-          await getStepAudioPCM(step.id, mantenimentoText, false, customApiKey, `${step.id}_mantenimento`);
-        }
-        if (uscitaText.trim()) {
-          await getStepAudioPCM(step.id, uscitaText, false, customApiKey, `${step.id}_uscita`);
-        }
-        // Wait to respect rate limits (4s if custom, 21s if shared/default)
-        const delay = customApiKey ? 4000 : 21000;
-        await new Promise(r => setTimeout(r, delay));
-      } catch (err) {
-        console.log(`[TTS Cache] Soft bypass for ${step.id}:`, err);
-      }
+    if (!customApiKey) {
+      warmupRunning = true;
     }
-    console.log("[TTS Cache] Warmup process settled. Total cached files:", fs.readdirSync(CACHE_DIR).length);
+    try {
+      console.log(`[TTS Cache] Starting background cache warmup for ${durationMin}m (${activeSequence.length} steps)...`);
+      for (const step of activeSequence) {
+        // If we are currently rate-limited and NOT using a custom API key, wait until the cooldown expires
+        if (!customApiKey) {
+          while (Date.now() < cloudTtsBypassedUntil) {
+            const waitTime = Math.max(1000, cloudTtsBypassedUntil - Date.now());
+            console.log(`[TTS Cache] Rate limit cooldown active. Waiting ${Math.round(waitTime / 1000)}s before trying step: ${step.id}`);
+            await new Promise(r => setTimeout(r, waitTime));
+          }
+        }
+
+        try {
+          const parts = step.speechScript.split(" | ");
+          const mantenimentoText = parts[0] || "";
+          const uscitaText = parts[1] || "";
+
+          if (mantenimentoText.trim()) {
+            await getStepAudioPCM(step.id, mantenimentoText, false, customApiKey, `${step.id}_mantenimento`);
+          }
+          if (uscitaText.trim()) {
+            await getStepAudioPCM(step.id, uscitaText, false, customApiKey, `${step.id}_uscita`);
+          }
+          // Wait to respect rate limits (4s if custom, 21s if shared/default)
+          const delay = customApiKey ? 4000 : 21000;
+          await new Promise(r => setTimeout(r, delay));
+        } catch (err) {
+          console.log(`[TTS Cache] Soft bypass for ${step.id}:`, err);
+        }
+      }
+      console.log("[TTS Cache] Warmup process settled. Total cached files:", fs.readdirSync(CACHE_DIR).length);
+    } finally {
+      warmupRunning = false;
+    }
   })();
 });
 
@@ -321,7 +348,7 @@ app.get("/api/audio/:stepId", async (req, res) => {
     }
 
     const cacheKey = `${step.id}_${phase === "uscita" ? "uscita" : "mantenimento"}`;
-    const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
+    const customApiKey = req.headers["x-gemini-api-key"] as string | undefined;
     
     // Pass true for allowThrow so that we don't swallow quota/rate errors
     const pcmBuffer = await getStepAudioPCM(step.id, speechText, true, customApiKey, cacheKey);
@@ -372,7 +399,7 @@ app.get("/api/audio-download", async (req, res) => {
     if (durationMin < 5) durationMin = 5;
     if (durationMin > 90) durationMin = 90;
     
-    const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
+    const customApiKey = req.headers["x-gemini-api-key"] as string | undefined;
     const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
     console.log(`[TTS Download] Generating combined audio of ${durationMin} minutes (${activeSequence.length} steps)${customApiKey ? " with custom API key" : ""}...`);
     
@@ -586,7 +613,7 @@ app.post("/api/audio-download-custom", async (req, res) => {
       return;
     }
     
-    const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
+    const customApiKey = req.headers["x-gemini-api-key"] as string | undefined;
     console.log(`[TTS Download Custom] Generating custom combined audio of ${activeSequence.length} steps${customApiKey ? " with custom API key" : ""}...`);
     
     // 1. Generate any missing steps sequentially before starting the stream
