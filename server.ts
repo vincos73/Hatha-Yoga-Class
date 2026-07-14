@@ -10,7 +10,7 @@ dotenv.config();
 
 const app = express();
 app.use(express.json());
-const PORT = 3001;
+const PORT = parseInt(process.env.PORT || "", 10) || 3001;
 
 // Initialize GoogleGenAI client with the required User-Agent
 const ai = new GoogleGenAI({
