@@ -11,6 +11,7 @@ export interface YogaStep {
     uscita: string;
   };
   speechScript: string; // The exact text spoken by the teacher, containing " | " to separate maintenance and exit
+  isHarvardCore?: boolean;
 }
 
 export const YOGA_SEQUENCE: YogaStep[] = [
@@ -21,6 +22,7 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "integrazione",
     categoryLabel: "Integrazione",
     side: "entrambi",
+    isHarvardCore: true,
     description: {
       entrata: "Siediti comodo sul tappetino a gambe incrociate. Se senti tensione alle anche, utilizza un cuscino o un blocco per sollevare i glutei. Raddrizza la colonna vertebrale immaginando un filo che allunga delicatamente la testa verso l'alto. Appoggia i palmi delle mani sulle ginocchia, rivolti verso l'alto per aprirti alla pratica.",
       mantenimento: "Mantenimento guidato (40 secondi): Chiudi gli occhi e porta l'attenzione al respiro naturale. Inspira profondo... senti l'addome che si espande... espira... rilassa le spalle lontano dalle orecchie... rimani qui, sei forte e calmo... ancora un respiro profondo... unisci mente e corpo in questa centratura iniziale.",
@@ -35,12 +37,43 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "riscaldamento",
     categoryLabel: "Riscaldamento",
     side: "entrambi",
+    isHarvardCore: true,
     description: {
       entrata: "Portati a quattro zampe in posizione di quadrupedia. Posiziona le mani direttamente sotto le spalle con di dita ben aperte, e le ginocchia direttamente sotto le anche distanti quanto il bacino. Schiena piatta e collo in linea.",
       mantenimento: "Mantenimento guidato (40 secondi): Sincronizza il movimento al respiro. Inspirando inarca la schiena, solleva il coccige e guarda verso il soffitto aprendo il petto. Espirando arrotonda la colonna spingendo via il pavimento con le mani, risucchia l'ombelico e porta il mento allo sterno. Inspira profondo... inarca ed allunga l'addome... espira... rilassa le spalle e curva la colonna verso l'alto... rimani presente nel flusso.",
       uscita: "Espirando, ritorna dolcemente con la schiena dritta in posizione neutra parallela al suolo, stabilizzando il bacino."
     },
     speechScript: "Portati a quattro zampe in posizione di quadrupedia. Posiziona i polsi sotto le spalle e le ginocchia sotto le anche, alla larghezza del bacino. Mantieni la schiena parallela al suolo. Ora iniziamo il riscaldamento dinamico. Inspirando inarca la schiena, solleva il coccige, apri il petto in avanti e guarda verso l'alto... Espirando arrotonda la colonna verso il soffitto, spingi via il pavimento con le mani, risucchia l'ombelico e porta il mento al petto... Inspira profondo... senti l'addome che si espande e la schiena che si inarca dolcemente... espira... rilassa le spalle e curva la colonna verso il cielo, allungando ogni vertebra... Rimani qui in movimento, sei forte e flessibile... Inspira... espira... ancora un respiro profondo seguendo il flusso della colonna... | Espirando, ritorna lentamente con la schiena dritta in posizione neutra, stabilizzando il bacino."
+  },
+  {
+    id: "riscaldamento_balasana",
+    title: "Posizione del Bambino",
+    asanaName: "Balasana (Posizione del Bambino)",
+    category: "riscaldamento",
+    categoryLabel: "Riscaldamento",
+    side: "entrambi",
+    isHarvardCore: true,
+    description: {
+      entrata: "Dalla quadrupedia, unisci gli alluci e allarga le ginocchia alla larghezza del tappetino. Spingi il bacino indietro appoggiando i glutei sui talloni. Cammina con le mani in avanti e appoggia la fronte a terra.",
+      mantenimento: "Mantenimento guidato (40 secondi): Abbandona tutto il peso del busto e della testa alla terra. Inspira profondo... senti la colonna che si allunga... espira... rilassa le spalle e lascia che il petto si apra verso il tappetino... rimani qui, respira con calma e lasciati andare... allenta ogni sforzo muscolare.",
+      uscita: "Inspirando premi leggermente i palmi a terra e solleva lentamente il busto, ritornando a quattro zampe in quadrupedia."
+    },
+    speechScript: "Dalla quadrupedia, unisci gli alluci e allarga le ginocchia quanto il tappetino. Spingi il bacino indietro appoggiando i glutei sui talloni. Allunga le braccia in avanti sul tappetino e appoggia delicatamente la fronte a terra, entrando in Balasana. Iniziamo il mantenimento guidato. Inspira profondamente dal naso... senti l'aria che espande la schiena e la zona lombare... espira... rilascia ogni tensione verso il basso... Inspira lentamente... senti il petto che si fa pesante... espira... rilassa le spalle, i gomiti e le mani a terra... rimani qui, sei al sicuro e rilassato... respira con calma e consapevolezza... ancora un respiro profondo... | Inspirando premi leggermente i palmi a terra e solleva lentamente il busto, riportando la colonna eretta ed il peso al centro."
+  },
+  {
+    id: "riscaldamento_cane",
+    title: "Cane a Faccia in Giù",
+    asanaName: "Adho Mukha Svanasana (Cane a Faccia in Giù)",
+    category: "riscaldamento",
+    categoryLabel: "Riscaldamento",
+    side: "entrambi",
+    isHarvardCore: true,
+    description: {
+      entrata: "Inizia a quattro zampe. Sposta le mani leggermente in avanti, punta i piedi ed inspirando solleva le ginocchia da terra. Espirando spingi il bacino in alto e indietro, allungando le gambe e la schiena fino a formare una V rovesciata.",
+      mantenimento: "Mantenimento guidato (40 secondi): Spingi forte con i palmi delle mani per allungare tutta la schiena. Rilassa il collo e la testa. Inspira profondo... solleva il coccige verso il cielo... espira... spingi i talloni verso il pavimento... mantieni le ginocchia flesse se senti tensione... respira con calma.",
+      uscita: "Espirando lentamente, piega le ginocchia e riportale dolcemente a terra, tornando in quadrupedia."
+    },
+    speechScript: "Dalla quadrupedia, sposta le mani leggermente in avanti rispetto alle spalle. Punta i piedi a terra ed, inspirando, solleva le ginocchia da terra. Espirando spingi il bacino indietro e verso l'alto, formando una V rovesciata. Tieni la testa rilassata tra le braccia. Entriamo nel Cane a Faccia in Giù. Iniziamo il mantenimento guidato. Inspira profondo... spingi forte le mani a terra per allungare la colonna... espira... cerca di stendere le gambe spingendo i talloni verso la terra... Inspira... senti il coccige che sale verso il soffitto... espira... allarga le spalle lontano dalle orecchie... rimani qui, sei forte e centrato... respira... ancora un respiro profondo... | Espirando lentamente, piega le ginocchia e riportale dolcemente a terra, tornando in quadrupedia con la schiena neutra."
   },
   {
     id: "riscaldamento_sufi",
@@ -77,12 +110,13 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "in piedi",
     categoryLabel: "Posizioni in Piedi",
     side: "entrambi",
+    isHarvardCore: true,
     description: {
       entrata: "Portati in piedi all'inizio del tappetino. Unisci gli alluci lasciando i talloni leggermente separati. Rilassa le braccia lungo i fianchi con i palmi rivolti in avanti. Mantieni la colonna eretta.",
       mantenimento: "Mantenimento guidato (40 secondi): Distribuisci il peso in modo omogeneo sui piedi. Attiva le gambe, solleva le rotule, allinea il bacino e solleva lo sterno. Inspira profondo... allunga la colonna verso il cielo... espira... rilassa le spalle lontano dalle orecchie... rimani qui, sei forte e stabile come una montagna... senti la connessione con la terra sotto i tuoi piedi.",
       uscita: "Rilassa leggermente le ginocchia e mantieni lo stato di calma mentale, preparandoti alla posizione successiva."
     },
-    speechScript: "Portati in piedi all'inizio del tappetino. Unisci gli alluci e mantieni i talloni leggermente separati. Rilassa le braccia lungo i fianchi con i palmi rivolti in avanti. Troviamo stabilità in Tadasana. Distribuisci il peso in modo uniforme sulla planta dei piedi. Attiva le cosce e allinea il bacino. Inspira profondo... senti l'addome che si espande... espira... rilassa le spalle e spingile lontano dalle orecchie... allunga la colonna verso il cielo... rimani qui, sei forte e radicato come una montagna... Inspira profondo... percepisci la tua stabilità... espira... rilassati mantenendo la posa eretta... inspira... espira... ancora un respiro profondo... | Rilassa dolcemente la tensione delle gambe, mantenendo la mente concentrata e calma."
+    speechScript: "Portati in piedi all'inizio del tappetino. Unisci gli alluci e mantieni i talloni leggermente separati. Rilassa le braccia lungo i fianchi con i palmi rivolti in avanti. Troviamo stabilità in Tadasana. Distribuisci il peso in modo uniforme sulla pianta dei piedi. Attiva le cosce e allinea il bacino. Inspira profondo... senti l'addome che si espande... espira... rilassa le spalle e spingile lontano dalle orecchie... allunga la colonna verso il cielo... rimani qui, sei forte e radicato come una montagna... Inspira profondo... percepisci la tua stabilità... espira... rilassati mantenendo la posa eretta... inspira... espira... ancora un respiro profondo... | Rilassa dolcemente la tensione delle gambe, mantenendo la mente concentrata e calma."
   },
   {
     id: "piedi_guerriero2_sinistro",
@@ -91,6 +125,7 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "in piedi",
     categoryLabel: "Posizioni in Piedi",
     side: "sinistro",
+    isHarvardCore: true,
     description: {
       entrata: "Da Tadasana, fai un grande passo indietro con il piede destro (circa un metro). Ruota il piede destro in fuori di 90 gradi. Piega il ginocchio sinistro tenendolo allineato sopra la caviglia sinistra. Estendi le braccia parallele al suolo all'altezza delle spalle, guardando oltre la mano sinistra.",
       mantenimento: "Mantenimento guidato (40 secondi): Inspira profondo... allunga le braccia in direzioni opposte creando spazio... espira... scendi leggermente con il bacino radicando i piedi a terra... rimani qui, sei forte e concentrato... tieni il busto verticale... senti l'addome espandersi... espira... rilassa le spalle... mantieni fiero lo sguardo.",
@@ -105,6 +140,7 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "in piedi",
     categoryLabel: "Posizioni in Piedi",
     side: "destro",
+    isHarvardCore: true,
     description: {
       entrata: "Da Tadasana, fai un grande passo indietro con il piede sinistro. Ruota il piede sinistro in fuori di 90 gradi. Piega il ginocchio destro tenendolo allineato sopra la caviglia destra. Estendi le braccia parallele al suolo all'altezza delle spalle, guardando oltre la mano destra.",
       mantenimento: "Mantenimento guidato (40 secondi): Inspira profondo... senti l'addome che si espande... espira... rilassa le spalle ed affonda dolcemente con il bacino... rimani qui, sei forte... tieni le braccia attive e stabili... espira... mantieni il busto ben centrato... percepisci la tua forza interiore.",
@@ -119,6 +155,7 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "in piedi",
     categoryLabel: "Posizioni in Piedi",
     side: "sinistro",
+    isHarvardCore: true,
     description: {
       entrata: "Divarica le gambe lateralmente a circa un metro. Ruota il piede sinistro in fuori di 90 gradi e il destro leggermente in dentro di 15 gradi. Estendi le braccia lateralmente, parallele al suolo. Allungati verso sinistra e fletti il busto scendendo con la mano sulla tibia o su un blocco. Allunga il braccio destro al soffitto.",
       mantenimento: "Mantenimento guidato (40 secondi): Inspira profondo... apri il petto verso l'alto... espira... rilassa le spalle ed allunga entrambi i lati del busto... rimani qui, sei forte... spingi bene i piedi a terra... senti l'allungamento profondo nel fianco destro... respira con calma e consapevolezza.",
@@ -133,12 +170,13 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "in piedi",
     categoryLabel: "Posizioni in Piedi",
     side: "destro",
+    isHarvardCore: true,
     description: {
       entrata: "Con le gambe divaricate, ruota il piede destro in fuori di 90 gradi e il sinistro in dentro di 15 gradi. Estendi le braccia lateralmente. Allungati verso destra e fletti il busto scendendo con la mano destra sulla tibia o sulla caviglia. Allunga il braccio sinistro verso il cielo.",
       mantenimento: "Mantenimento guidato (40 secondi): Inspira profondo... senti l'addome espandersi... espira... rilassa le spalle allontanandole dalle orecchie... rimani qui, sei forte... non fare cadere la spalla sinistra in avanti... mantieni il petto aperto... senti l'allungamento e respira.",
       uscita: "Inspirando, attiva gli obliqui per risalire con il busto. Abbassa le braccia e unisci i piedi in Tadasana."
     },
-    speechScript: "Con le gambe divaricate, ruota il piede destro in fuori di 90 gradi e il sinistro leggermente in dentro. Estendi le braccia lateralmente. Inspirando allungati verso destra e, espirando, fletti il busto scendendo con la mano destra sulla tibia o sulla caviglia. Allunga il braccio sinistro verso il cielo e rivolgi lo sguardo alla mano in alto. Manteniamo il Triangolo sul lato destro. Inspira profondo... senti l'addome che si espande... espira... rilassa le spalle allontanandole dalle orecchie... rimani qui, sei forte... non far cadere il petto in avanti... Inspira profondo... espira... percepisci lo spazio nel fianco sinistro... espandi il cuore... ancora un respiro profondo... | Inspirando usa la forza dell'addome per risalire con il busto. Abbassa le braccia e unisci i piedi all'inizio del tappetino."
+    speechScript: "Con le gambe divaricate, ruota il piede destro in fuori di 90 gradi and il sinistro leggermente in dentro. Estendi le braccia lateralmente. Inspirando allungati verso destra e, espirando, fletti il busto scendendo con la mano destra sulla tibia o sulla caviglia. Allunga il braccio sinistro verso il cielo e rivolgi lo sguardo alla mano in alto. Manteniamo il Triangolo sul lato destro. Inspira profondo... senti l'addome che si espande... espira... rilassa le spalle allontanandole dalle orecchie... rimani qui, sei forte... non far cadere il petto in avanti... Inspira profondo... espira... percepisci lo spazio nel fianco sinistro... espandi il cuore... ancora un respiro profondo... | Inspirando usa la forza dell'addome per risalire con il busto. Abbassa le braccia e unisci i piedi all'inizio del tappetino."
   },
   {
     id: "equilibrio_albero_sinistro",
@@ -147,6 +185,7 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "equilibrio",
     categoryLabel: "Posizioni di Equilibrio",
     side: "sinistro",
+    isHarvardCore: true,
     description: {
       entrata: "Inizia in Tadasana. Sposta il peso sul piede destro, radicandoti a terra. Piega il ginocchio sinistro in fuori e solleva il piede appoggiando la pianta all'interno della coscia destra o sul polpaccio (evitando il ginocchio). Porta le mani giunte davanti al petto.",
       mantenimento: "Mantenimento guidato (40 secondi): Trova un punto fisso davanti a te per mantenere l'equilibrio. Inspira profondo... allunga la colonna... espira... rilassa le spalle ed il viso... rimani qui, sei forte e radicato come un albero stabile... respira con consapevolezza ad ogni oscillazione.",
@@ -161,6 +200,7 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "equilibrio",
     categoryLabel: "Posizioni di Equilibrio",
     side: "destro",
+    isHarvardCore: true,
     description: {
       entrata: "Inizia in Tadasana. Sposta il peso sul piede sinistro. Piega il ginocchio destro in fuori e solleva il piede appoggiando la pianta all'interno della coscia o del polpaccio sinistro. Porta le mani giunte davanti al petto.",
       mantenimento: "Mantenimento guidato (40 secondi): Fissa lo sguardo in avanti. Inspira profondo... cresci con la testa... espira... rilassa le spalle ed allinea i fianchi... rimani qui, sei forte... spingi il piede destro contro la coscia... respira profondamente per stabilizzare il corpo.",
@@ -231,12 +271,28 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "piegamento",
     categoryLabel: "Piegamenti all'Indietro",
     side: "entrambi",
+    isHarvardCore: true,
     description: {
       entrata: "Sdraiati sulla pancia a terra. Unisci le gambe con i dorsi dei piedi appoggiati a terra. Posiziona le mani sotto le spalle con i gomiti piegati e stretti vicino ai fianchi del busto.",
       mantenimento: "Mantenimento guidato (40 secondi): Inspirando premi il pube a terra e solleva dolcemente testa e petto, usando i muscoli spinali senza sforzare le mani. Inspira profondo... apri il cuore... espira... rilassa le spalle lontano dalle orecchie... gomiti piegati vicino al corpo... rimani qui, sei forte... respira profondamente.",
       uscita: "Espirando lentamente, riabbassa il petto e la fronte a terra. Appoggia una guancia sul tappetino e rilassati."
     },
     speechScript: "Sdraiati a pancia in giù sul tappetino. Unisci le gambe con i dorsi dei piedi appoggiati a terra. Posiziona i palmi delle mani sotto le spalle con i gomiti piegati e stretti vicino ai fianchi. Entriamo nel Cobra. Inspirando, premi il pube a terra e solleva delicatamente la testa e il petto, usando i muscoli della schiena senza spingere sulle mani. Inspira profondo... senti l'addome che si espande contro il suolo... espira... rilassa le spalle lontano dalle orecchie... rimani qui, sei forte... mantieni il collo lungo in asse... Inspira profondo... apri il cuore in avanti... espira... tieni i gomiti vicini al corpo... respira con consapevolezza... ancora un respiro profondo... | Espirando lentamente, riabbassa il petto e la fronte a terra, appoggia una guancia sul tappetino e rilassati."
+  },
+  {
+    id: "piegamento_ponte",
+    title: "Posizione del Ponte",
+    asanaName: "Setu Bandhasana (Posizione del Ponte)",
+    category: "piegamento",
+    categoryLabel: "Piegamenti all'Indietro",
+    side: "entrambi",
+    isHarvardCore: true,
+    description: {
+      entrata: "Sdraiati sulla schiena con le ginocchia piegate e le piante dei piedi a terra parallele, aperte alla larghezza delle anche. Posiziona i talloni vicini ai glutei, in modo da poterli sfiorare con le dita delle mani.",
+      mantenimento: "Mantenimento guidato (40 secondi): Inspirando premi con forza i piedi e le braccia a terra per sollevare il bacino verso l'alto. Se riesci, intreccia le dita sotto la schiena per aprire maggiormente le spalle ed il petto. Inspira profondo... solleva l'addome ed il torace... espira... tieni le ginocchia parallele senza farle allargare... rimani qui, sei forte... respira regolarmente.",
+      uscita: "Sciogli l'intreccio delle mani ed, espirando lentamente, srotola la colonna vertebrale a terra una vertebra alla volta, riappoggiando il bacino."
+    },
+    speechScript: "Sdraiati sulla schiena con le ginocchia piegate e le piante dei piedi a terra, larghi quanto il bacino. Avvicina i talloni ai glutei in modo da poterli sfiorare con le dita. Tieni le braccia lungo i fianchi con i palmi rivolti a terra. Inspirando premi forte i piedi e solleva il bacino verso l'alto. Se riesci, intreccia le dita sotto la schiena per aprire maggiormente le spalle. Iniziamo il mantenimento guidato. Inspira profondo... senti l'addome che sale... espira... spingi sulle cosce e mantieni le ginocchia parallele... Inspira... espandi il petto... espira... rilassa il collo e la gola, ma mantieni forte la spinta dei glutei e dei piedi... senti l'energia fluire nella colonna... ancora un respiro profondo... | Sciogli delicatamente l'intreccio delle mani ed, espirando lentamente, srotola la colonna una vertebra alla volta fino a riappoggiare il bacino sul tappetino."
   },
   {
     id: "apertura_farfalla",
@@ -301,12 +357,13 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     category: "rilassamento",
     categoryLabel: "Rilassamento Finale",
     side: "entrambi",
+    isHarvardCore: true,
     description: {
       entrata: "Sdraiati comodamente sulla schiena a terra. Divarica leggermente le gambe lasciando cadere i piedi verso l'esterno. Allontana le braccia dal corpo a circa 30 gradi con i palmi all'insù. Chiudi gli occhi.",
       mantenimento: "Mantenimento guidato (40 secondi): Abbandona il peso alla terra. Inspira profondo... espira con un sospiro liberatorio dalla bocca... rilassa talloni, polpacci, cosce e bacino... allenta addome, petto e spalle... rimani immobile in una quiete totale.",
       uscita: "Muovi lentamente le dita di mani e piedi. Stirati, piega le ginocchia e girati sul fianco destro prima di risalire a sederti con calma."
     },
-    speechScript: "Sdraiati sulla schiena per il rilassamento finale. Divarica leggermente le gambe lasciando cadere i piedi verso l'esterno. Allontana le braccia dal corpo con i palmi rivolti all'insù. Rimaniamo in Savasana. Chiudi gli occhi. Inspira profondamente dal naso ed espira con un lungo sospiro liberatorio dalla bocca, abbandonando tutto il corpo alla terra. Inspira profondo... espira... senti i talloni, i polpacci e le cosce farsi pesanti... rilassa il bacino e l'addome... Inspira profondo... espira... rilassa il petto, le spalle, le braccia e le mani... allenta la tension del collo e della gola... rilassa la mandibola, gli occhi e la fronte... Tutto il tuo corpo è ora immobile e rilassato, in una quiete profonda... lasciati andare... | Ora fai un respiro profondo, muovi lentamente le dita delle mani e dei piedi, stirati e girati sul fianco destro prima di tornare a sederti."
+    speechScript: "Sdraiati sulla schiena per il rilassamento finale. Divarica leggermente le gambe lasciando cadere i piedi verso l'esterno. Allontana le braccia dal corpo con i palmi rivolti all'insù. Rimaniamo in Savasana. Chiudi gli occhi. Inspira profondamente dal naso ed espira con un lungo sospiro liberatorio dalla bocca, abbandonando tutto il corpo alla terra. Inspira profondo... espira... senti i talloni, i polpacci e le cosce farsi pesanti... rilassa il bacino e l'addome... Inspira profondo... espira... rilassa il petto, le spalle, le braccia e le mani... allenta la tensione del collo e della gola... rilassa la mandibola, gli occhi e la fronte... Tutto il tuo corpo è ora immobile e rilassato, in una quiete profonda... lasciati andare... | Ora fai un respiro profondo, muovi lentamente le dita delle mani e dei piedi, stirati e girati sul fianco destro prima di tornare a sederti."
   },
   {
     id: "respirazione_sama_vritti",

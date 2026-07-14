@@ -26,7 +26,11 @@ import {
   Laptop,
   Key,
   Bell,
-  BellOff
+  BellOff,
+  Plus,
+  Trash2,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { YOGA_SEQUENCE, YogaStep, getSequenceForDuration } from "./data/yogaSequence";
 
@@ -79,7 +83,7 @@ const playSingingBowlChime = (pitch = 180) => {
 };
 
 export default function App() {
-  const [screen, setScreen] = useState<"welcome" | "practice">("welcome");
+  const [screen, setScreen] = useState<"welcome" | "practice" | "completed" | "builder">("welcome");
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [autoPlayNext, setAutoPlayNext] = useState(true);
@@ -88,7 +92,88 @@ export default function App() {
   const [practicePhase, setPracticePhase] = useState<"narration" | "hold" | "uscita">("narration");
   const [currentHoldRemaining, setCurrentHoldRemaining] = useState(10); // Hold is 10 seconds!
   const [totalSecondsRemaining, setTotalSecondsRemaining] = useState(15 * 60);
+  
+  // Yoga Builder custom states
+  const [isPlayingCustom, setIsPlayingCustom] = useState(false);
+  const [customSequence, setCustomSequence] = useState<YogaStep[]>([]);
+  const [activeTabMode, setActiveTabMode] = useState<"quick" | "builder">("quick");
+  const [builderFilter, setBuilderFilter] = useState<"all" | "harvard">("harvard");
   const [isChimeEnabled, setIsChimeEnabled] = useState(true);
+
+  // Saved sequences states
+  const [savedSequences, setSavedSequences] = useState<{ name: string; steps: YogaStep[] }[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("saved_yoga_sequences") || "[]");
+    } catch (_) {
+      return [];
+    }
+  });
+  const [newSequenceName, setNewSequenceName] = useState("");
+
+  const saveCurrentSequence = (name: string) => {
+    const trimmed = name.trim();
+    if (!trimmed) return;
+    if (customSequence.length === 0) return;
+    const updated = [...savedSequences, { name: trimmed, steps: [...customSequence] }];
+    setSavedSequences(updated);
+    localStorage.setItem("saved_yoga_sequences", JSON.stringify(updated));
+    setNewSequenceName("");
+  };
+
+  const deleteSavedSequence = (index: number) => {
+    const updated = savedSequences.filter((_, idx) => idx !== index);
+    setSavedSequences(updated);
+    localStorage.setItem("saved_yoga_sequences", JSON.stringify(updated));
+  };
+
+  // Yoga Builder helper functions
+  const addStepToCustom = (step: YogaStep) => {
+    setCustomSequence(prev => [...prev, { ...step }]);
+  };
+
+  const removeStepFromCustom = (index: number) => {
+    setCustomSequence(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const moveStepUp = (index: number) => {
+    if (index === 0) return;
+    setCustomSequence(prev => {
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[index - 1];
+      copy[index - 1] = temp;
+      return copy;
+    });
+  };
+
+  const moveStepDown = (index: number) => {
+    setCustomSequence(prev => {
+      if (index === prev.length - 1) return prev;
+      const copy = [...prev];
+      const temp = copy[index];
+      copy[index] = copy[index + 1];
+      copy[index + 1] = temp;
+      return copy;
+    });
+  };
+
+  const toggleStepSide = (index: number) => {
+    setCustomSequence(prev => {
+      const copy = [...prev];
+      const step = copy[index];
+      if (!step.side) return prev;
+      let nextSide: 'sinistro' | 'destro' | 'entrambi' = 'entrambi';
+      if (step.side === "sinistro") {
+        nextSide = "destro";
+      } else if (step.side === "destro") {
+        nextSide = "entrambi";
+      } else {
+        nextSide = "sinistro";
+      }
+      copy[index] = { ...step, side: nextSide };
+      return copy;
+    });
+  };
   
   // Cache check status
   const [cacheStatus, setCacheStatus] = useState<{
@@ -163,7 +248,7 @@ export default function App() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const breathingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const activeSequence = getSequenceForDuration(duration, YOGA_SEQUENCE);
+  const activeSequence = isPlayingCustom ? customSequence : getSequenceForDuration(duration, YOGA_SEQUENCE);
 
   // Estimate total speech duration in seconds
   const totalSpeechSec = activeSequence.reduce((acc, step) => {
@@ -171,10 +256,40 @@ export default function App() {
     return acc + Math.max(4, wordCount / 2.2);
   }, 0);
   const totalDurationSec = duration * 60;
-  const numPauses = activeSequence.length - 1;
+  const numPauses = Math.max(1, activeSequence.length - 1);
   const calculatedHoldTime = Math.max(5, Math.round((totalDurationSec - totalSpeechSec) / numPauses));
 
-  const currentStep = activeSequence[currentStepIndex] || activeSequence[0];
+  const currentStep = activeSequence[currentStepIndex] || activeSequence[0] || YOGA_SEQUENCE[0];
+
+  // Safety checks for custom sequence
+  const customHasWarmup = customSequence.some(s => s.category === "riscaldamento");
+  const customHasBalance = customSequence.some(s => s.category === "equilibrio");
+  const customHasBackbend = customSequence.some(s => s.category === "piegamento");
+
+  const customBalanceAlert = customHasBalance && !customHasWarmup;
+  const customBackbendAlert = customHasBackbend && !customHasWarmup;
+
+  const customAsymmetricWarnings: string[] = [];
+  customSequence.forEach((step, idx) => {
+    if (step.side && step.side !== "entrambi") {
+      const oppositeSide = step.side === "sinistro" ? "destro" : "sinistro";
+      const hasOpposite = customSequence.some((otherStep, oIdx) => 
+        oIdx !== idx && 
+        otherStep.title === step.title && 
+        otherStep.side === oppositeSide
+      );
+      if (!hasOpposite) {
+        const sideLabel = step.side === "sinistro" ? "sinistro" : "destro";
+        const label = `${step.asanaName || step.title} (${sideLabel})`;
+        if (!customAsymmetricWarnings.includes(label)) {
+          customAsymmetricWarnings.push(label);
+        }
+      }
+    }
+  });
+
+  const customHasBreathing = customSequence.some(s => s.category === "respirazione");
+  const customLongSequenceTip = customSequence.length > 6 && !customHasBreathing;
 
   // Check cache status and trigger warmup when duration changes
   useEffect(() => {
@@ -206,11 +321,13 @@ export default function App() {
         }));
         
         const hasCustomKey = !!localStorage.getItem("custom_gemini_api_key");
-        if (data.quotaExceeded && !hasCustomKey) {
+        const noApiKey = !data.hasServerApiKey && !hasCustomKey;
+        if ((data.quotaExceeded || noApiKey) && !hasCustomKey) {
           setHasQuotaError(true);
           setVoiceEngine("system");
         } else {
           setHasQuotaError(false);
+          setVoiceEngine("ai");
         }
       }
     } catch (err) {
@@ -343,11 +460,11 @@ export default function App() {
     }
   };
 
-  const triggerBlobDownload = (blob: Blob) => {
+  const triggerBlobDownload = (blob: Blob, filename = `sequenza_yoga_hatha_${duration}min.wav`) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `sequenza_yoga_hatha_${duration}min.wav`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -361,6 +478,88 @@ export default function App() {
       setDownloadState("idle");
       setDownloadProgress(0);
     }, 5000);
+  };
+
+  const downloadCustomAudio = async () => {
+    if (customSequence.length === 0) return;
+    if (downloadState !== "idle" && downloadState !== "completed" && downloadState !== "error") return;
+    
+    setDownloadState("preparing");
+    setDownloadProgress(0);
+    
+    try {
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+      const storedKey = localStorage.getItem("custom_gemini_api_key");
+      if (storedKey) {
+        headers["x-gemini-api-key"] = storedKey;
+      }
+      
+      const response = await fetch("/api/audio-download-custom", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ steps: customSequence.map(s => ({ id: s.id })) })
+      });
+      
+      if (!response.ok) {
+        let errMsg = "Errore durante la generazione dell'audio personalizzato.";
+        try {
+          const text = await response.text();
+          try {
+            const errData = JSON.parse(text);
+            if (errData && errData.error) {
+              errMsg = errData.error;
+            }
+          } catch (_) {
+            if (text && text.length < 150) {
+              errMsg = text;
+            }
+          }
+        } catch (_) {}
+        throw new Error(errMsg);
+      }
+      
+      const contentLengthHeader = response.headers.get("x-audio-total-bytes") || response.headers.get("content-length");
+      const totalBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
+      
+      setDownloadState("downloading");
+      
+      const reader = response.body?.getReader();
+      if (!reader) {
+        const blob = await response.blob();
+        triggerBlobDownload(blob, "sequenza_yoga_personalizzata.wav");
+        return;
+      }
+      
+      const chunks: Uint8Array[] = [];
+      let receivedBytes = 0;
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        if (value) {
+          chunks.push(value);
+          receivedBytes += value.length;
+          if (totalBytes > 0) {
+            const progress = Math.round((receivedBytes / totalBytes) * 100);
+            setDownloadProgress(progress);
+          }
+        }
+      }
+      
+      const blob = new Blob(chunks, { type: "audio/wav" });
+      triggerBlobDownload(blob, "sequenza_yoga_personalizzata.wav");
+    } catch (err: any) {
+      console.error("Errore durante il download dell'audio personalizzato:", err);
+      setDownloadError(err?.message || "Errore sconosciuto.");
+      setDownloadState("error");
+      setTimeout(() => {
+        setDownloadState("idle");
+        setDownloadError(null);
+      }, 5000);
+    }
   };
 
   // Master timer effect for practice hold duration & total session time
@@ -919,64 +1118,121 @@ export default function App() {
                     Hata Yoga Tradizionale per Tutti
                   </div>
                   <h2 className="text-4xl md:text-5xl font-serif text-[#1a2b23] tracking-tight leading-tight italic font-medium">
-                    Ritrova l'equilibrio con la tua prima sequenza.
+                    Ritrova l'equilibrio con la tua pratica.
                   </h2>
                   <p className="text-[#2d3e35]/80 leading-relaxed text-sm md:text-base">
-                    Una pratica guidata di Hata Yoga strutturata scientificamente per principianti. 
-                    Migliora la flessibilità, calma la mente e impara a fluire con il tuo respiro, 
-                    accompagnato dalla voce calda e rassicurante della nostra guida.
+                    Una guida scientificamente strutturata basata sull'integrazione di corpo e respiro per principianti, ispirata ai principi di sicurezza ed efficacia medica.
                   </p>
                 </div>
 
-                {/* Duration Picker */}
-                <div className="bg-white/40 backdrop-blur-md p-6 rounded-2xl border border-white/60 shadow-xl space-y-4">
-                  <div className="flex justify-between items-center">
-                    <h3 className="font-bold text-[#1a2b23] text-sm flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-[#7ba691]" />
-                      Seleziona la Durata della Sessione
-                    </h3>
-                    <span className="text-xs text-[#2d3e35] font-mono font-bold bg-white/40 px-2.5 py-1 rounded-md border border-white/50">
-                      {duration} minuti
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2" id="duration_selector">
-                    {[15, 30, 45].map((mins) => (
-                      <button
-                        key={mins}
-                        onClick={() => setDuration(mins)}
-                        className={`py-2 px-1 text-center rounded-xl text-xs font-semibold transition-all border ${
-                          duration === mins
-                            ? "bg-[#7ba691] text-white border-[#7ba691] shadow-md shadow-[#7ba691]/20 scale-[1.03]"
-                            : "bg-white/20 text-[#2d3e35]/80 border-white/30 hover:bg-white/40"
-                        }`}
-                      >
-                        {mins} min
-                      </button>
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-[#2d3e35]/65 leading-relaxed">
-                    * La durata della sessione seleziona in automatico un set bilanciato di asana (9 passi per 15 min, 16 passi per 30 min, tutti i 23 passi per 45 min) e ne adatta il ritmo di tenuta complessivo.
-                  </p>
-                </div>
-                {/* Primary CTA Block */}
-                <div className="flex flex-col sm:flex-row gap-3">
+                {/* Mode Selector Tab Bar */}
+                <div className="flex gap-2 p-1 bg-white/30 border border-white/50 rounded-2xl backdrop-blur-md max-w-sm">
                   <button
                     onClick={() => {
-                      setCurrentStepIndex(0);
-                      setScreen("practice");
-                      setIsPlaying(true);
-                      setPracticePhase("narration");
-                      setTotalSecondsRemaining(duration * 60);
-                      setCurrentHoldRemaining(10);
+                      setActiveTabMode("quick");
+                      setIsPlayingCustom(false);
                     }}
-                    className="flex-1 bg-[#2d3e35] hover:bg-[#1a2b23] text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-[#2d3e35]/15 hover:shadow-lg flex items-center justify-center gap-2 text-base"
-                    id="start_practice_btn"
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                      activeTabMode === "quick" 
+                        ? "bg-[#2d3e35] text-white shadow-md shadow-[#2d3e35]/15" 
+                        : "text-[#2d3e35]/80 hover:bg-white/20"
+                    }`}
                   >
-                    <Play className="w-5 h-5 fill-white" />
-                    Inizia la Pratica Online
+                    Sessione Rapida
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveTabMode("builder");
+                      setIsPlayingCustom(true);
+                      // Initialize custom sequence with a default template if empty
+                      if (customSequence.length === 0) {
+                        const defaultTemplate = YOGA_SEQUENCE.filter(s => 
+                          ["integrazione_sukhasana", "riscaldamento_gatto_mucca", "piedi_tadasana", "rilassamento_savasana"].includes(s.id)
+                        );
+                        setCustomSequence(defaultTemplate);
+                      }
+                    }}
+                    className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all ${
+                      activeTabMode === "builder" 
+                        ? "bg-[#2d3e35] text-white shadow-md shadow-[#2d3e35]/15" 
+                        : "text-[#2d3e35]/80 hover:bg-white/20"
+                    }`}
+                  >
+                    Yoga Builder
                   </button>
                 </div>
+
+                {activeTabMode === "quick" ? (
+                  <>
+                    {/* Duration Picker */}
+                    <div className="bg-white/40 backdrop-blur-md p-6 rounded-2xl border border-white/60 shadow-xl space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="font-bold text-[#1a2b23] text-sm flex items-center gap-2">
+                          <Clock className="w-4 h-4 text-[#7ba691]" />
+                          Seleziona la Durata della Sessione
+                        </h3>
+                        <span className="text-xs text-[#2d3e35] font-mono font-bold bg-white/40 px-2.5 py-1 rounded-md border border-white/50">
+                          {duration} minuti
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2" id="duration_selector">
+                        {[15, 30, 45].map((mins) => (
+                          <button
+                            key={mins}
+                            onClick={() => setDuration(mins)}
+                            className={`py-2 px-1 text-center rounded-xl text-xs font-semibold transition-all border ${
+                              duration === mins
+                                ? "bg-[#7ba691] text-white border-[#7ba691] shadow-md shadow-[#7ba691]/20 scale-[1.03]"
+                                : "bg-white/20 text-[#2d3e35]/80 border-white/30 hover:bg-white/40"
+                            }`}
+                          >
+                            {mins} min
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-[#2d3e35]/65 leading-relaxed">
+                        * La durata della sessione seleziona in automatico un set bilanciato di asana (9 passi per 15 min, 16 passi per 30 min, tutti i 23 passi per 45 min) e ne adatta il ritmo di tenuta complessivo.
+                      </p>
+                    </div>
+                    {/* Primary CTA Block */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <button
+                        onClick={() => {
+                          setIsPlayingCustom(false);
+                          setCurrentStepIndex(0);
+                          setScreen("practice");
+                          setIsPlaying(true);
+                          setPracticePhase("narration");
+                          setTotalSecondsRemaining(duration * 60);
+                          setCurrentHoldRemaining(10);
+                        }}
+                        className="flex-1 bg-[#2d3e35] hover:bg-[#1a2b23] text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-[#2d3e35]/15 hover:shadow-lg flex items-center justify-center gap-2 text-base"
+                        id="start_practice_btn"
+                      >
+                        <Play className="w-5 h-5 fill-white" />
+                        Inizia la Pratica Online
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="bg-white/40 backdrop-blur-md p-6 rounded-2xl border border-white/60 shadow-xl space-y-4">
+                    <h3 className="font-bold text-[#1a2b23] text-sm flex items-center gap-2">
+                      <Layers className="w-4 h-4 text-[#7ba691]" />
+                      Pratica Personalizzata Posa per Posa
+                    </h3>
+                    <p className="text-xs text-[#2d3e35]/80 leading-relaxed">
+                      Con lo <strong>Yoga Builder</strong> puoi trascinare e comporre le tue posizioni preferite, scegliere se eseguirle a destra, a sinistra o da entrambi i lati, visualizzare la durata stimata e verificare che la sequenza rispetti i principi di una pratica bilanciata.
+                    </p>
+                    <button
+                      onClick={() => setScreen("builder")}
+                      className="w-full bg-[#2d3e35] hover:bg-[#1a2b23] text-white font-bold py-3.5 px-6 rounded-2xl transition-all shadow-md flex items-center justify-center gap-2 text-sm"
+                    >
+                      <Layers className="w-4.5 h-4.5" />
+                      Apri lo Yoga Builder
+                    </button>
+                  </div>
+                )}
 
                 {/* Status & Quota Explanation Banners */}
                 {cacheStatus.cachedCount < cacheStatus.totalCount ? (
@@ -1005,50 +1261,499 @@ export default function App() {
                 )}
               </div>
 
-              {/* Right Column: Sequence Outline */}
-              <div className="lg:col-span-5 bg-white/30 backdrop-blur-md p-6 rounded-3xl border border-white/50 shadow-xl space-y-4">
-                <div className="flex justify-between items-center border-b border-white/20 pb-3">
-                  <h3 className="font-bold text-[#1a2b23] font-serif flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-[#7ba691]" />
-                    Struttura della Sequenza
-                  </h3>
-                  <span className="text-[10px] uppercase font-mono font-bold bg-white/30 text-[#2d3e35] px-2 py-0.5 rounded border border-white/40">
-                    {activeSequence.length} Passi
-                  </span>
+              {/* Right Column */}
+              <div className="lg:col-span-5">
+                {activeTabMode === "quick" ? (
+                  <div className="bg-white/30 backdrop-blur-md p-6 rounded-3xl border border-white/50 shadow-xl space-y-4">
+                    <div className="flex justify-between items-center border-b border-white/20 pb-3">
+                      <h3 className="font-bold text-[#1a2b23] font-serif flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-[#7ba691]" />
+                        Struttura della Sequenza
+                      </h3>
+                      <span className="text-[10px] uppercase font-mono font-bold bg-white/30 text-[#2d3e35] px-2 py-0.5 rounded border border-white/40">
+                        {activeSequence.length} Passi
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-2" id="sequence_list_outline">
+                      {activeSequence.map((step, idx) => {
+                        const stepTheme = getCategoryTheme(step.category);
+                        return (
+                          <div 
+                            key={step.id} 
+                            className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-white/20 border border-transparent hover:border-white/20 transition-all"
+                          >
+                            <span className="w-5 h-5 rounded-full bg-white/40 text-[#2d3e35] border border-white/40 flex items-center justify-center text-[10px] font-mono font-bold mt-0.5 shadow-sm">
+                              {idx + 1}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-xs font-bold text-[#1a2b23] truncate">
+                                {step.asanaName || step.title}
+                              </h4>
+                              <div className="flex items-center gap-1.5 mt-0.5">
+                                <span className="text-[9px] font-medium text-[#2d3e35]/65">
+                                  {stepTheme.badge}
+                                </span>
+                                {step.side && step.side !== "entrambi" && (
+                                  <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-white/30 border border-white/30 text-[#2d3e35]/70 rounded font-mono">
+                                    {step.side}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <ChevronRight className="w-3.5 h-3.5 text-[#2d3e35]/40 mt-1" />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-white/30 backdrop-blur-md p-6 rounded-3xl border border-white/50 shadow-xl space-y-5">
+                    <div className="flex items-center gap-2 border-b border-white/20 pb-3">
+                      <Flower2 className="w-5 h-5 text-[#7ba691]" />
+                      <h3 className="font-bold text-[#1a2b23] font-serif">Harvard Medical School Guide</h3>
+                    </div>
+                    
+                    <p className="text-xs text-[#2d3e35]/85 leading-relaxed">
+                      Lo Yoga Builder include e valorizza la rinomata **guida medica di Harvard** per principianti. Costruisci una routine focalizzata su stabilità, flessibilità e scarico in totale sicurezza.
+                    </p>
+
+                    <div className="space-y-2">
+                      <div className="text-[11px] font-bold text-[#1a2b23]/90 flex items-center gap-2.5 bg-emerald-50/45 p-3 rounded-2xl border border-emerald-100/50 shadow-sm">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span><strong>Sicurezza Scientifica</strong>: Pose sicure, senza sforzi cervicali o articolari estremi.</span>
+                      </div>
+                      <div className="text-[11px] font-bold text-[#1a2b23]/90 flex items-center gap-2.5 bg-emerald-50/45 p-3 rounded-2xl border border-emerald-100/50 shadow-sm">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span><strong>Badge Harvard Core</strong>: Individua subito le posizioni raccomandate.</span>
+                      </div>
+                      <div className="text-[11px] font-bold text-[#1a2b23]/90 flex items-center gap-2.5 bg-emerald-50/45 p-3 rounded-2xl border border-emerald-100/50 shadow-sm">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <span><strong>Equilibrio Totale</strong>: Consiglia Integrazione, Riscaldamento e Rilassamento.</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* YOGA BUILDER SCREEN */}
+          {screen === "builder" && (
+            <motion.div
+              key="builder"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              className="flex flex-col gap-6 w-full"
+            >
+              {/* Header block */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/30 backdrop-blur-md p-6 rounded-3xl border border-white/50 shadow-xl">
+                <div className="space-y-1">
+                  <button 
+                    onClick={() => setScreen("welcome")}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2d3e35]/80 hover:text-[#1a2b23] transition-colors mb-2"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Torna alla Home
+                  </button>
+                  <h2 className="text-2xl font-bold font-serif text-[#1a2b23] flex items-center gap-2">
+                    <Layers className="w-6 h-6 text-[#7ba691]" />
+                    Yoga Builder Personalizzato
+                  </h2>
+                  <p className="text-xs text-[#2d3e35]/80">
+                    Componi la tua sequenza posa dopo posa. Catalogo ispirato alla guida della Harvard Medical School.
+                  </p>
                 </div>
 
-                <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-2" id="sequence_list_outline">
-                  {activeSequence.map((step, idx) => {
-                    const stepTheme = getCategoryTheme(step.category);
-                    return (
-                      <div 
-                        key={step.id} 
-                        className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-white/20 border border-transparent hover:border-white/20 transition-all"
-                      >
-                        <span className="w-5 h-5 rounded-full bg-white/40 text-[#2d3e35] border border-white/40 flex items-center justify-center text-[10px] font-mono font-bold mt-0.5 shadow-sm">
-                          {idx + 1}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-xs font-bold text-[#1a2b23] truncate">
-                            {step.asanaName || step.title}
-                          </h4>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[9px] font-medium text-[#2d3e35]/65">
-                              {stepTheme.badge}
-                            </span>
-                            {step.side && step.side !== "entrambi" && (
-                              <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-white/30 border border-white/30 text-[#2d3e35]/70 rounded font-mono">
-                                {step.side}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-[#2d3e35]/40 mt-1" />
-                      </div>
-                    );
-                  })}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setCustomSequence([]);
+                    }}
+                    className="px-4 py-2 border border-rose-200 bg-rose-50/40 text-rose-700 hover:bg-rose-50 hover:text-rose-800 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Svuota Lista
+                  </button>
+                  <button
+                    onClick={() => {
+                      const defaultTemplate = YOGA_SEQUENCE.filter(s => 
+                        ["integrazione_sukhasana", "riscaldamento_gatto_mucca", "piedi_tadasana", "piegamento_cobra", "rilassamento_savasana"].includes(s.id)
+                      );
+                      setCustomSequence(defaultTemplate);
+                    }}
+                    className="px-4 py-2 border border-[#7ba691]/40 bg-white/30 text-[#2d3e35] hover:bg-white/50 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Carica Esempio Harvard
+                  </button>
                 </div>
               </div>
+
+              {/* Grid workspace */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                
+                {/* Left Column: available poses list & saved sequences */}
+                <div className="lg:col-span-6 flex flex-col gap-6">
+                  {/* Available poses card */}
+                  <div className="bg-white/30 backdrop-blur-md p-6 rounded-3xl border border-white/50 shadow-xl space-y-4">
+                    <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 border-b border-white/20 pb-3">
+                      <h3 className="font-bold text-[#1a2b23] font-serif flex items-center gap-2 text-sm">
+                        <Flower2 className="w-4 h-4 text-[#7ba691]" />
+                        Seleziona Posizioni
+                      </h3>
+                      
+                      {/* Category Filter */}
+                      <div className="flex gap-1.5 p-1 bg-white/40 border border-white/50 rounded-xl">
+                        <button
+                          onClick={() => setBuilderFilter("harvard")}
+                          className={`py-1 px-2.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                            builderFilter === "harvard" 
+                              ? "bg-[#2d3e35] text-white" 
+                              : "text-[#2d3e35]/80 hover:bg-white/20"
+                          }`}
+                        >
+                          Harvard Core
+                        </button>
+                        <button
+                          onClick={() => setBuilderFilter("all")}
+                          className={`py-1 px-2.5 rounded-lg text-[10px] font-bold uppercase transition-all ${
+                            builderFilter === "all" 
+                              ? "bg-[#2d3e35] text-white" 
+                              : "text-[#2d3e35]/80 hover:bg-white/20"
+                          }`}
+                        >
+                          Tutte ({YOGA_SEQUENCE.length})
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Scrollable catalogue */}
+                    <div className="space-y-2.5 max-h-[500px] overflow-y-auto pr-1">
+                      {YOGA_SEQUENCE.filter(s => builderFilter === "all" || s.isHarvardCore).map((step) => {
+                        const stepTheme = getCategoryTheme(step.category);
+                        return (
+                          <div 
+                            key={step.id}
+                            className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-white/25 border border-white/30 hover:bg-white/40 transition-all shadow-sm"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-xs font-bold text-[#1a2b23] truncate">
+                                  {step.asanaName || step.title}
+                                </h4>
+                                {step.isHarvardCore && (
+                                  <span className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-emerald-100 border border-emerald-200 text-emerald-800 rounded font-mono shrink-0">
+                                    Harvard Core
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                <span className="text-[9px] font-medium text-[#2d3e35]/65">
+                                  {stepTheme.badge}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => addStepToCustom(step)}
+                              className="p-1.5 bg-[#2d3e35] hover:bg-[#1a2b23] text-white rounded-xl transition-all shadow-sm hover:scale-[1.05]"
+                              title="Aggiungi alla sequenza"
+                            >
+                              <Plus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Saved Sequences Card */}
+                  {savedSequences.length > 0 && (
+                    <div className="bg-white/30 backdrop-blur-md p-6 rounded-3xl border border-white/50 shadow-xl space-y-4">
+                      <h3 className="font-bold text-[#1a2b23] font-serif flex items-center gap-2 text-sm">
+                        <Layers className="w-4 h-4 text-[#7ba691]" />
+                        Le Mie Sequenze Salvate
+                      </h3>
+                      
+                      <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                        {savedSequences.map((seq, idx) => (
+                          <div 
+                            key={`saved_${idx}`}
+                            className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-white/20 border border-white/30 hover:bg-white/35 transition-all shadow-sm"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <h4 className="text-xs font-bold text-[#1a2b23] truncate">
+                                {seq.name}
+                              </h4>
+                              <p className="text-[10px] text-[#2d3e35]/65 mt-0.5">
+                                {seq.steps.length} posizioni • ~{Math.round(seq.steps.length * 1.5)} min
+                              </p>
+                            </div>
+                            
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setCustomSequence([...seq.steps]);
+                                  setIsPlayingCustom(true);
+                                }}
+                                className="px-2.5 py-1.5 bg-[#2d3e35] hover:bg-[#1a2b23] text-white rounded-lg text-[10px] font-bold transition-all shadow-sm"
+                              >
+                                Carica
+                              </button>
+                              <button
+                                onClick={() => deleteSavedSequence(idx)}
+                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50/50 rounded-lg transition-colors"
+                                title="Elimina sequenza"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Right Column: custom sequence timeline */}
+                <div className="lg:col-span-6 flex flex-col gap-6">
+                  
+                  {/* Selected list panel */}
+                  <div className="bg-white/30 backdrop-blur-md p-6 rounded-3xl border border-white/50 shadow-xl space-y-4">
+                    <div className="flex justify-between items-center border-b border-white/20 pb-3">
+                      <h3 className="font-bold text-[#1a2b23] font-serif flex items-center gap-2 text-sm">
+                        <Layers className="w-4 h-4 text-[#7ba691]" />
+                        La Tua Sequenza
+                      </h3>
+                      <span className="text-[10px] font-mono font-bold bg-[#2d3e35] text-white px-2.5 py-0.5 rounded-full shadow-sm">
+                        {customSequence.length} Asana
+                      </span>
+                    </div>
+
+                    {customSequence.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center text-center p-12 border-2 border-dashed border-white/40 rounded-2xl space-y-3">
+                        <Layers className="w-8 h-8 text-[#2d3e35]/40 animate-pulse" />
+                        <p className="text-xs text-[#2d3e35]/70 font-medium max-w-xs">
+                          La tua sequenza è ancora vuota. Aggiungi delle posizioni dal catalogo dell'Harvard Core a sinistra per iniziare.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[380px] overflow-y-auto pr-1">
+                        {customSequence.map((step, idx) => {
+                          const stepTheme = getCategoryTheme(step.category);
+                          return (
+                            <div 
+                              key={`${step.id}_index_${idx}`}
+                              className="flex items-center gap-3 p-3 rounded-2xl bg-white/40 border border-white/55 shadow-sm transition-all hover:bg-white/50"
+                            >
+                              {/* Step index */}
+                              <span className="w-5 h-5 rounded-full bg-white/60 text-[#2d3e35] border border-white/50 flex items-center justify-center text-[10px] font-mono font-bold shrink-0">
+                                {idx + 1}
+                              </span>
+
+                              {/* Title & Info */}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-xs font-bold text-[#1a2b23] truncate">
+                                  {step.asanaName || step.title}
+                                </h4>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <span className="text-[9px] font-medium text-[#2d3e35]/60">
+                                    {stepTheme.badge}
+                                  </span>
+                                  {step.side && (
+                                    <button
+                                      onClick={() => toggleStepSide(idx)}
+                                      className="text-[8px] font-bold uppercase px-1.5 py-0.2 bg-white/50 border border-white/60 text-[#2d3e35]/75 hover:bg-[#2d3e35] hover:text-white rounded font-mono transition-all"
+                                      title="Clicca per cambiare lato"
+                                    >
+                                      Lato: {step.side}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Action controls */}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => moveStepUp(idx)}
+                                  disabled={idx === 0}
+                                  className="p-1 text-[#2d3e35]/70 hover:text-[#1a2b23] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                >
+                                  <ArrowUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => moveStepDown(idx)}
+                                  disabled={idx === customSequence.length - 1}
+                                  className="p-1 text-[#2d3e35]/70 hover:text-[#1a2b23] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                >
+                                  <ArrowDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => removeStepFromCustom(idx)}
+                                  className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50/50 rounded-lg transition-colors ml-1"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {customSequence.length > 0 && (
+                      <div className="flex items-center gap-2 pt-3 border-t border-white/20">
+                        <input
+                          type="text"
+                          placeholder="Salva questa sequenza con un nome..."
+                          value={newSequenceName}
+                          onChange={(e) => setNewSequenceName(e.target.value)}
+                          className="flex-1 bg-white/40 border border-white/50 rounded-xl px-3 py-2 text-xs font-semibold text-[#1a2b23] focus:outline-none focus:border-[#7ba691] placeholder-[#2d3e35]/50"
+                        />
+                        <button
+                          onClick={() => saveCurrentSequence(newSequenceName)}
+                          className="bg-[#2d3e35] hover:bg-[#1a2b23] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm"
+                        >
+                          Salva
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Validation and Action block */}
+                  <div className="bg-white/30 backdrop-blur-md p-6 rounded-3xl border border-white/50 shadow-xl space-y-4">
+                    <div className="grid grid-cols-2 gap-4 border-b border-white/20 pb-3">
+                      <div>
+                        <span className="text-[10px] text-[#2d3e35]/65 font-bold uppercase tracking-wider">Durata Stimata</span>
+                        <div className="text-lg font-bold text-[#1a2b23] mt-0.5">
+                          {Math.round(customSequence.length * 1.5)} Minuti
+                        </div>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-[#2d3e35]/65 font-bold uppercase tracking-wider">Tempo Tenuta</span>
+                        <div className="text-lg font-bold text-[#1a2b23] mt-0.5">
+                          10s per posa
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Flow Validation Checklist */}
+                    <div className="space-y-2">
+                      <span className="text-[10px] text-[#2d3e35]/65 font-bold uppercase tracking-wider">Analisi Sequenza</span>
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#2d3e35]/95">
+                          {customSequence.some(s => s.category === "integrazione") ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                          )}
+                          <span>Contiene 1 posizione di integrazione</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#2d3e35]/95">
+                          {customSequence.some(s => s.category === "riscaldamento") ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                          )}
+                          <span>Contiene almeno 1 riscaldamento</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-[11px] font-medium text-[#2d3e35]/95">
+                          {customSequence.some(s => s.category === "rilassamento") ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          ) : (
+                            <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                          )}
+                          <span>Termina con rilassamento (Savasana)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Advanced Safety Alerts (HMS Inspired) */}
+                    {(customBalanceAlert || customBackbendAlert || customAsymmetricWarnings.length > 0 || customLongSequenceTip) && (
+                      <div className="space-y-2 pt-2.5 border-t border-white/20">
+                        <span className="text-[10px] text-[#2d3e35]/65 font-bold uppercase tracking-wider">Sicurezza e Consigli</span>
+                        <div className="space-y-1.5">
+                          {customBalanceAlert && (
+                            <div className="flex items-start gap-2 p-2 bg-amber-50/50 border border-amber-200/50 rounded-xl text-[10px] text-amber-900/90 leading-relaxed font-semibold">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <span>⚠️ Pose di equilibrio presenti senza riscaldamento previo. Aggiungi Balasana o Gatto/Mucca prima.</span>
+                            </div>
+                          )}
+                          {customBackbendAlert && (
+                            <div className="flex items-start gap-2 p-2 bg-amber-50/50 border border-amber-200/50 rounded-xl text-[10px] text-amber-900/90 leading-relaxed font-semibold">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <span>⚠️ I piegamenti all'indietro sollecitano la colonna vertebrale. Aggiungi riscaldamenti prima.</span>
+                            </div>
+                          )}
+                          {customAsymmetricWarnings.map((label, wIdx) => (
+                            <div key={`asym_${wIdx}`} className="flex items-start gap-2 p-2 bg-amber-50/50 border border-amber-200/50 rounded-xl text-[10px] text-amber-900/90 leading-relaxed font-semibold">
+                              <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                              <span>⚠️ Asimmetria: manca il lato opposto per <strong>{label}</strong>. Per bilanciare, inserisci entrambi i lati.</span>
+                            </div>
+                          ))}
+                          {customLongSequenceTip && (
+                            <div className="flex items-start gap-2 p-2 bg-emerald-50/50 border border-emerald-200/50 rounded-xl text-[10px] text-emerald-950/90 leading-relaxed font-semibold">
+                              <Sparkle className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                              <span>💡 Consiglio: La sequenza è lunga, considera di inserire una tecnica di respirazione (es. Sama Vritti).</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* CTAs */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                      <button
+                        onClick={() => {
+                          if (customSequence.length === 0) return;
+                          setIsPlayingCustom(true);
+                          setCurrentStepIndex(0);
+                          setScreen("practice");
+                          setIsPlaying(true);
+                          setPracticePhase("narration");
+                          
+                          // Calculate exact seconds
+                          const speechSec = customSequence.reduce((acc, s) => {
+                            const wordCount = s.speechScript.split(/\s+/).filter(Boolean).length;
+                            return acc + Math.max(4, wordCount / 2.2);
+                          }, 0);
+                          const totalSec = speechSec + (customSequence.length * 10);
+                          setTotalSecondsRemaining(Math.round(totalSec));
+                          setCurrentHoldRemaining(10);
+                        }}
+                        disabled={customSequence.length === 0}
+                        className="flex-1 bg-[#2d3e35] hover:bg-[#1a2b23] text-white font-bold py-3 px-4 rounded-xl transition-all shadow-md disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider"
+                      >
+                        <Play className="w-4 h-4 fill-white" />
+                        Avvia Pratica
+                      </button>
+
+                      <button
+                        onClick={downloadCustomAudio}
+                        disabled={customSequence.length === 0 || (downloadState !== "idle" && downloadState !== "completed" && downloadState !== "error")}
+                        className="flex-1 bg-white/40 border border-[#7ba691] hover:bg-white/60 text-[#2d3e35] font-bold py-3 px-4 rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider"
+                      >
+                        {downloadState === "downloading" ? (
+                          <Loader2 className="w-4 h-4 animate-spin text-[#7ba691]" />
+                        ) : (
+                          <Download className="w-4 h-4 text-[#7ba691]" />
+                        )}
+                        {downloadState === "downloading" ? `Esportazione: ${downloadProgress}%` : "Scarica Audio"}
+                      </button>
+                    </div>
+
+                    {downloadState === "downloading" && (
+                      <div className="w-full bg-white/40 h-1.5 rounded-full overflow-hidden border border-white/50 shadow-inner">
+                        <div 
+                          className="bg-[#7ba691] h-full rounded-full transition-all duration-300 shadow-sm"
+                          style={{ width: `${downloadProgress}%` }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+
             </motion.div>
           )}
 

@@ -9,6 +9,7 @@ import { YOGA_SEQUENCE, getSequenceForDuration } from "./src/data/yogaSequence.j
 dotenv.config();
 
 const app = express();
+app.use(express.json());
 const PORT = 3001;
 
 // Initialize GoogleGenAI client with the required User-Agent
@@ -214,14 +215,15 @@ app.get("/api/cache-status", (req, res) => {
   const files = fs.readdirSync(CACHE_DIR);
   const status: Record<string, boolean> = {};
   activeSequence.forEach(step => {
-    status[step.id] = files.includes(`${step.id}.pcm`);
+    status[step.id] = files.includes(`${step.id}_mantenimento.pcm`);
   });
   res.json({
     cachedCount: Object.values(status).filter(Boolean).length,
     totalCount: activeSequence.length,
     status,
     quotaExceeded: Date.now() < cloudTtsBypassedUntil,
-    cooldownRemaining: Math.max(0, Math.round((cloudTtsBypassedUntil - Date.now()) / 1000))
+    cooldownRemaining: Math.max(0, Math.round((cloudTtsBypassedUntil - Date.now()) / 1000)),
+    hasServerApiKey: !!process.env.GEMINI_API_KEY
   });
 });
 
@@ -392,7 +394,6 @@ app.get("/api/audio-download", async (req, res) => {
             await new Promise(r => setTimeout(r, delay));
           } catch (err) {
             console.warn(`[TTS Download] Failed to pre-generate ${step.id} mantenimento, using silence fallback:`, err);
-            fs.writeFileSync(cachePathM, Buffer.alloc(240000));
           }
         }
       }
@@ -408,7 +409,6 @@ app.get("/api/audio-download", async (req, res) => {
             await new Promise(r => setTimeout(r, delay));
           } catch (err) {
             console.warn(`[TTS Download] Failed to pre-generate ${step.id} uscita, using silence fallback:`, err);
-            fs.writeFileSync(cachePathU, Buffer.alloc(240000));
           }
         }
       }
@@ -559,6 +559,218 @@ app.get("/api/audio-download", async (req, res) => {
     console.error("[TTS Download] Combined session audio generation failed:", err);
     if (!res.headersSent) {
       res.status(500).json({ error: "Impossibile scaricare l'audio. Riprova più tardi." });
+    }
+  }
+});
+
+// API: Download custom combined session audio
+app.post("/api/audio-download-custom", async (req, res) => {
+  try {
+    const { steps } = req.body;
+    if (!Array.isArray(steps) || steps.length === 0) {
+      res.status(400).json({ error: "Sequenza vuota o non valida." });
+      return;
+    }
+    
+    // Map custom step IDs to full step objects
+    const activeSequence: typeof YOGA_SEQUENCE = [];
+    for (const item of steps) {
+      const step = YOGA_SEQUENCE.find(s => s.id === item.id);
+      if (step) {
+        activeSequence.push(step);
+      }
+    }
+    
+    if (activeSequence.length === 0) {
+      res.status(400).json({ error: "Nessun asana valido trovato nella sequenza." });
+      return;
+    }
+    
+    const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
+    console.log(`[TTS Download Custom] Generating custom combined audio of ${activeSequence.length} steps${customApiKey ? " with custom API key" : ""}...`);
+    
+    // 1. Generate any missing steps sequentially before starting the stream
+    for (let i = 0; i < activeSequence.length; i++) {
+      const step = activeSequence[i];
+      const parts = step.speechScript.split(" | ");
+      const mantenimentoText = parts[0] || "";
+      const uscitaText = parts[1] || "";
+
+      // Warm up mantenimento
+      if (mantenimentoText.trim()) {
+        const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
+        if (!fs.existsSync(cachePathM)) {
+          console.log(`[TTS Download Custom] Cache miss for step ${step.id} mantenimento. Generating before stream...`);
+          try {
+            await getStepAudioPCM(step.id, mantenimentoText, true, customApiKey, `${step.id}_mantenimento`);
+            const delay = customApiKey ? 4000 : 21000;
+            await new Promise(r => setTimeout(r, delay));
+          } catch (err) {
+            console.warn(`[TTS Download Custom] Failed to pre-generate ${step.id} mantenimento, using silence fallback:`, err);
+          }
+        }
+      }
+
+      // Warm up uscita
+      if (uscitaText.trim()) {
+        const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+        if (!fs.existsSync(cachePathU)) {
+          console.log(`[TTS Download Custom] Cache miss for step ${step.id} uscita. Generating before stream...`);
+          try {
+            await getStepAudioPCM(step.id, uscitaText, true, customApiKey, `${step.id}_uscita`);
+            const delay = customApiKey ? 4000 : 21000;
+            await new Promise(r => setTimeout(r, delay));
+          } catch (err) {
+            console.warn(`[TTS Download Custom] Failed to pre-generate ${step.id} uscita, using silence fallback:`, err);
+          }
+        }
+      }
+    }
+    
+    // 2. Snapshot the exact sizes of all cached files for both phases
+    const snapshottedOriginalLengths: Record<string, { mantenimento: number; uscita: number }> = {};
+    for (const step of activeSequence) {
+      const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
+      const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+      
+      let lenM = 240000;
+      if (fs.existsSync(cachePathM)) {
+        try { lenM = fs.statSync(cachePathM).size; } catch (_) {}
+      }
+      
+      let lenU = 4800; // tiny silent fallback if no exit script
+      const parts = step.speechScript.split(" | ");
+      if (parts[1] && parts[1].trim()) {
+        if (fs.existsSync(cachePathU)) {
+          try { lenU = fs.statSync(cachePathU).size; } catch (_) {}
+        } else {
+          lenU = 240000;
+        }
+      } else {
+        lenU = 4800;
+      }
+      
+      snapshottedOriginalLengths[step.id] = { mantenimento: lenM, uscita: lenU };
+    }
+    
+    // 3. Calculate downsampled lengths and total speech bytes
+    let totalSpeechBytes = 0;
+    const snapshottedDownsampledLengths: Record<string, { mantenimento: number; uscita: number }> = {};
+    for (const step of activeSequence) {
+      const { mantenimento: lenM, uscita: lenU } = snapshottedOriginalLengths[step.id];
+      
+      const numSamplesM = Math.floor(lenM / 2);
+      const newNumSamplesM = Math.floor(numSamplesM / 2);
+      const downM = newNumSamplesM * 2;
+      
+      const numSamplesU = Math.floor(lenU / 2);
+      const newNumSamplesU = Math.floor(numSamplesU / 2);
+      const downU = newNumSamplesU * 2;
+      
+      snapshottedDownsampledLengths[step.id] = { mantenimento: downM, uscita: downU };
+      totalSpeechBytes += downM + downU;
+    }
+    
+    // 4. Pauses are exactly 10 seconds per step, between mantenimento and uscita
+    const holdSec = 10;
+    const holdBytesSize = Math.floor(holdSec * 12000) * 2; // 12000Hz 16-bit Mono (2 bytes per sample)
+    const totalSilenceBytes = activeSequence.length * holdBytesSize;
+    
+    const totalDataSize = totalSpeechBytes + totalSilenceBytes;
+    const wavHeader = createWavHeader(totalDataSize, 12000);
+    
+    // 5. Set response headers for direct stream download with anti-buffering & no-cache
+    res.setHeader("Content-Type", "audio/wav");
+    res.setHeader("Content-Disposition", `attachment; filename="sequenza_yoga_personalizzata.wav"`);
+    res.setHeader("x-audio-total-bytes", (totalDataSize + 44).toString());
+    res.setHeader("Access-Control-Expose-Headers", "x-audio-total-bytes");
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    
+    // Write WAV header immediately to start download
+    res.write(wavHeader);
+    
+    // 6. Pre-allocate 10-second silence buffer once to reuse
+    const silenceBuffer = Buffer.alloc(holdBytesSize);
+    
+    // 7. Stream each step sequential chunk by chunk
+    for (let i = 0; i < activeSequence.length; i++) {
+      const step = activeSequence[i];
+      const { mantenimento: targetMOrig, uscita: targetUOrig } = snapshottedOriginalLengths[step.id];
+      const { mantenimento: targetMDown, uscita: targetUDown } = snapshottedDownsampledLengths[step.id];
+      
+      // Load and stream Mantenimento
+      const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
+      let pcmM: Buffer;
+      try {
+        pcmM = fs.readFileSync(cachePathM);
+      } catch (_) {
+        pcmM = Buffer.alloc(targetMOrig);
+      }
+      
+      let finalPCMM = pcmM;
+      if (pcmM.length !== targetMOrig) {
+        if (pcmM.length > targetMOrig) {
+          finalPCMM = pcmM.subarray(0, targetMOrig);
+        } else {
+          finalPCMM = Buffer.concat([pcmM, Buffer.alloc(targetMOrig - pcmM.length)]);
+        }
+      }
+      
+      const downM = downsamplePCM2x(finalPCMM);
+      let finalDownM = downM;
+      if (downM.length !== targetMDown) {
+        if (downM.length > targetMDown) {
+          finalDownM = downM.subarray(0, targetMDown);
+        } else {
+          finalDownM = Buffer.concat([downM, Buffer.alloc(targetMDown - downM.length)]);
+        }
+      }
+      
+      res.write(finalDownM);
+      
+      // Write 10 seconds of silence between mantenimento and uscita
+      res.write(silenceBuffer);
+      
+      // Load and stream Uscita
+      const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+      let pcmU: Buffer;
+      try {
+        pcmU = fs.readFileSync(cachePathU);
+      } catch (_) {
+        pcmU = Buffer.alloc(targetUOrig);
+      }
+      
+      let finalPCMU = pcmU;
+      if (pcmU.length !== targetUOrig) {
+        if (pcmU.length > targetUOrig) {
+          finalPCMU = pcmU.subarray(0, targetUOrig);
+        } else {
+          finalPCMU = Buffer.concat([pcmU, Buffer.alloc(targetUOrig - pcmU.length)]);
+        }
+      }
+      
+      const downU = downsamplePCM2x(finalPCMU);
+      let finalDownU = downU;
+      if (downU.length !== targetUDown) {
+        if (downU.length > targetUDown) {
+          finalDownU = downU.subarray(0, targetUDown);
+        } else {
+          finalDownU = Buffer.concat([downU, Buffer.alloc(targetUDown - downU.length)]);
+        }
+      }
+      
+      res.write(finalDownU);
+    }
+    
+    res.end();
+    console.log(`[TTS Download Custom] Custom audio stream of ${activeSequence.length} steps completed successfully.`);
+  } catch (err: any) {
+    console.error("[TTS Download Custom] Custom combined session audio generation failed:", err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Impossibile scaricare l'audio personalizzato. Riprova più tardi." });
     }
   }
 });
