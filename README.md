@@ -1,20 +1,45 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Hata Yoga by Luemy
 
-# Run and deploy your AI Studio app
+Guida vocale interattiva per la pratica dell'Hatha Yoga, pensata per principianti, con interfaccia e voce in italiano.
 
-This contains everything you need to run your app locally.
+## Funzionalità
 
-View your app in AI Studio: https://ai.studio/apps/9d21eb86-cb73-41de-a8c9-c5663bd32fee
+- Sessioni rapide da 15/30/45 minuti, con ritmo adattato alla durata scelta
+- Guida vocale AI (Gemini TTS, voce "Zephyr") con cache lato server e fallback automatico alla voce di sistema del browser
+- Yoga Builder per comporre sequenze personalizzate, con avvisi di sicurezza (riscaldamento mancante, asimmetrie destra/sinistra)
+- Coach del respiro con respirazione quadrata per il pranayama
+- Download della lezione completa in formato WAV
+- Salvataggio delle sequenze personalizzate nel browser
 
-## Run Locally
+## Stack
 
-**Prerequisites:**  Node.js
+- Frontend: React 19 + Vite + Tailwind 4
+- Server: Express + tsx
+- Sintesi vocale: Gemini API (TTS)
 
+## Avvio locale
 
-1. Install dependencies:
+Prerequisiti: Node.js
+
+1. Installa le dipendenze:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
+2. Crea `.env.local` a partire da `.env.example` e imposta `GEMINI_API_KEY` (opzionale: senza chiave l'app funziona comunque, usando la voce di sistema del browser)
+3. Avvia l'app:
    `npm run dev`
+4. Apri http://localhost:3001
+
+## Build di produzione
+
+`npm run build` per generare i file di build, poi `npm start` per avviare il server (porta configurabile tramite la variabile d'ambiente `PORT`).
+
+## Note
+
+Gli utenti possono collegare una chiave API Gemini personale dall'interfaccia (pulsante "Sblocca Limite") per superare i limiti di quota della chiave condivisa. La chiave viene salvata solo nel localStorage del browser e inviata al server tramite header, senza essere memorizzata lato server.
+
+## Avvertenza medica
+
+Questa applicazione ha scopo puramente informativo e non sostituisce il parere di un medico o di un insegnante qualificato. Consulta un medico prima di iniziare qualsiasi programma di esercizio fisico, soprattutto in caso di infortuni, gravidanza o condizioni preesistenti. Interrompi immediatamente la pratica se avverti dolore.
+
+---
+
+Distribuito con licenza MIT.

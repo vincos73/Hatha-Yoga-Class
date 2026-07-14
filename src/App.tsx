@@ -871,6 +871,7 @@ export default function App() {
 
       {/* FOOTER */}
       <footer className="relative z-10 border-t border-white/20 bg-white/5 backdrop-blur-md py-6 text-center text-xs text-[#2d3e35]/65">
+        <p className="text-[10px] text-[#2d3e35]/50 max-w-3xl mx-auto px-4 leading-relaxed">Questa applicazione ha scopo puramente informativo e non sostituisce il parere di un medico o di un insegnante qualificato. Consulta un medico prima di iniziare qualsiasi programma di esercizio fisico, soprattutto in caso di infortuni, gravidanza o condizioni preesistenti. Interrompi immediatamente la pratica se avverti dolore.</p>
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-3">
           <p>© 2026 Hata Yoga by Luemy. Tutti i diritti riservati.</p>
           <div className="flex gap-4 font-medium">

@@ -194,6 +194,8 @@ export function WelcomeScreen({
             </p>
           </div>
         )}
+
+        <p className="text-[10px] text-[#2d3e35]/55 leading-relaxed px-1">⚠️ Questa applicazione ha scopo puramente informativo e non sostituisce il parere di un medico o di un insegnante qualificato. Consulta un medico prima di iniziare qualsiasi programma di esercizio fisico, soprattutto in caso di infortuni, gravidanza o condizioni preesistenti. Interrompi immediatamente la pratica se avverti dolore.</p>
       </div>
 
       {/* Right Column */}
@@ -250,7 +252,7 @@ export function WelcomeScreen({
             </div>
 
             <p className="text-xs text-[#2d3e35]/85 leading-relaxed">
-              Lo Yoga Builder include e valorizza la rinomata **guida medica di Harvard** per principianti. Costruisci una routine focalizzata su stabilità, flessibilità e scarico in totale sicurezza.
+              Lo Yoga Builder include e valorizza la rinomata <strong>guida medica di Harvard</strong> per principianti. Costruisci una routine focalizzata su stabilità, flessibilità e scarico in totale sicurezza.
             </p>
 
             <div className="space-y-2">
