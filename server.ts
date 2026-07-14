@@ -440,7 +440,19 @@ app.get("/api/audio-download", async (req, res) => {
         }
       }
     }
-    
+
+    // Abort with a clear error instead of streaming a WAV with silent holes
+    const missingSteps: string[] = [];
+    for (const step of activeSequence) {
+      const parts = step.speechScript.split(" | ");
+      if (parts[0]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`))) missingSteps.push(step.id);
+      else if (parts[1]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_uscita.pcm`))) missingSteps.push(step.id);
+    }
+    if (missingSteps.length > 0) {
+      res.status(409).json({ error: `${missingSteps.length} asana non sono ancora state sintetizzate (quota esaurita?). Riprova tra qualche minuto o collega una chiave API personale.` });
+      return;
+    }
+
     // 2. Snapshot the exact sizes of all cached files for both phases
     const snapshottedOriginalLengths: Record<string, { mantenimento: number; uscita: number }> = {};
     for (const step of activeSequence) {
@@ -653,7 +665,19 @@ app.post("/api/audio-download-custom", async (req, res) => {
         }
       }
     }
-    
+
+    // Abort with a clear error instead of streaming a WAV with silent holes
+    const missingSteps: string[] = [];
+    for (const step of activeSequence) {
+      const parts = step.speechScript.split(" | ");
+      if (parts[0]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`))) missingSteps.push(step.id);
+      else if (parts[1]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_uscita.pcm`))) missingSteps.push(step.id);
+    }
+    if (missingSteps.length > 0) {
+      res.status(409).json({ error: `${missingSteps.length} asana non sono ancora state sintetizzate (quota esaurita?). Riprova tra qualche minuto o collega una chiave API personale.` });
+      return;
+    }
+
     // 2. Snapshot the exact sizes of all cached files for both phases
     const snapshottedOriginalLengths: Record<string, { mantenimento: number; uscita: number }> = {};
     for (const step of activeSequence) {

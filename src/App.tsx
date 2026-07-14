@@ -251,6 +251,13 @@ export default function App() {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const breathingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isMutedRef = useRef(isMuted);
+  const isChimeEnabledRef = useRef(isChimeEnabled);
+  const autoPlayNextRef = useRef(autoPlayNext);
+  isMutedRef.current = isMuted;
+  isChimeEnabledRef.current = isChimeEnabled;
+  autoPlayNextRef.current = autoPlayNext;
+  const italianVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
 
   const activeSequence = isPlayingCustom ? customSequence : getSequenceForDuration(duration, YOGA_SEQUENCE);
 
@@ -563,7 +570,7 @@ export default function App() {
           setCurrentHoldRemaining(prev => {
             if (prev <= 1) {
               // Hold phase completed! Transition to uscita
-              if (isChimeEnabled && !isMuted) {
+              if (isChimeEnabledRef.current && !isMutedRef.current) {
                 playSingingBowlChime(150); // Lower tone to signal transition
               }
               setPracticePhase("uscita");
@@ -578,13 +585,24 @@ export default function App() {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isPlaying, practicePhase, currentStepIndex, autoPlayNext, isChimeEnabled, isMuted]);
+  }, [isPlaying, practicePhase, currentStepIndex, autoPlayNext]);
 
   // Reset practice phase to narration when changing step index
   useEffect(() => {
     setPracticePhase("narration");
     setActiveTab("entrata");
   }, [currentStepIndex]);
+
+  // Load the Italian voice asynchronously (voices list arrives via the voiceschanged event)
+  useEffect(() => {
+    const pickItalianVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      italianVoiceRef.current = voices.find(v => v.lang.startsWith("it-") || v.lang === "it_IT") || null;
+    };
+    pickItalianVoice();
+    window.speechSynthesis.addEventListener("voiceschanged", pickItalianVoice);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", pickItalianVoice);
+  }, []);
 
   // Synchronize audio / speech synthesis element
   useEffect(() => {
@@ -602,7 +620,7 @@ export default function App() {
 
     const handleUscitaEnd = () => {
       if (currentStepIndex < activeSequence.length - 1) {
-        if (autoPlayNext) {
+        if (autoPlayNextRef.current) {
           setCurrentStepIndex(idx => idx + 1);
           setPracticePhase("narration");
         } else {
@@ -619,19 +637,17 @@ export default function App() {
         if (practicePhase === "narration") {
           const utterance = new SpeechSynthesisUtterance(mantenimentoScript);
           utterance.lang = "it-IT";
-          
-          const voices = window.speechSynthesis.getVoices();
-          const itVoice = voices.find(v => v.lang.startsWith("it-") || v.lang === "it_IT");
-          if (itVoice) {
-            utterance.voice = itVoice;
+
+          if (italianVoiceRef.current) {
+            utterance.voice = italianVoiceRef.current;
           }
           utterance.rate = 0.85; // Relaxing, slightly slower pace for yoga
-          utterance.volume = isMuted ? 0 : 1;
+          utterance.volume = isMutedRef.current ? 0 : 1;
 
           utterance.onend = () => {
             setPracticePhase("hold");
             setCurrentHoldRemaining(holdTimeSec);
-            if (isChimeEnabled && !isMuted) {
+            if (isChimeEnabledRef.current && !isMutedRef.current) {
               playSingingBowlChime(220); // standard warm chime
             }
           };
@@ -646,14 +662,12 @@ export default function App() {
           if (uscitaScript.trim()) {
             const utterance = new SpeechSynthesisUtterance(uscitaScript);
             utterance.lang = "it-IT";
-            
-            const voices = window.speechSynthesis.getVoices();
-            const itVoice = voices.find(v => v.lang.startsWith("it-") || v.lang === "it_IT");
-            if (itVoice) {
-              utterance.voice = itVoice;
+
+            if (italianVoiceRef.current) {
+              utterance.voice = italianVoiceRef.current;
             }
             utterance.rate = 0.85;
-            utterance.volume = isMuted ? 0 : 1;
+            utterance.volume = isMutedRef.current ? 0 : 1;
 
             utterance.onend = () => {
               handleUscitaEnd();
@@ -693,13 +707,13 @@ export default function App() {
             objectUrl = URL.createObjectURL(blob);
             const audio = new Audio(objectUrl);
             audioRef.current = audio;
-            audio.muted = isMuted;
+            audio.muted = isMutedRef.current;
 
             audio.onended = () => {
               if (practicePhase === "narration") {
                 setPracticePhase("hold");
                 setCurrentHoldRemaining(holdTimeSec);
-                if (isChimeEnabled && !isMuted) {
+                if (isChimeEnabledRef.current && !isMutedRef.current) {
                   playSingingBowlChime(220); // standard warm chime
                 }
               } else if (practicePhase === "uscita") {
@@ -732,7 +746,7 @@ export default function App() {
         }
       };
     }
-  }, [currentStepIndex, voiceEngine, isPlaying, isMuted, isChimeEnabled, practicePhase, autoPlayNext]);
+  }, [currentStepIndex, voiceEngine, isPlaying, practicePhase]);
 
   // Handle Play/Pause
   const togglePlay = () => {
