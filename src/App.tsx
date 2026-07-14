@@ -85,8 +85,8 @@ export default function App() {
   const [autoPlayNext, setAutoPlayNext] = useState(true);
   const [duration, setDuration] = useState(15); // Session duration in minutes
   const [isMuted, setIsMuted] = useState(false);
-  const [practicePhase, setPracticePhase] = useState<"narration" | "hold">("narration");
-  const [currentHoldRemaining, setCurrentHoldRemaining] = useState(30);
+  const [practicePhase, setPracticePhase] = useState<"narration" | "hold" | "uscita">("narration");
+  const [currentHoldRemaining, setCurrentHoldRemaining] = useState(10); // Hold is 10 seconds!
   const [totalSecondsRemaining, setTotalSecondsRemaining] = useState(15 * 60);
   const [isChimeEnabled, setIsChimeEnabled] = useState(true);
   
@@ -376,25 +376,11 @@ export default function App() {
         if (practicePhase === "hold") {
           setCurrentHoldRemaining(prev => {
             if (prev <= 1) {
-              // Hold phase completed!
+              // Hold phase completed! Transition to uscita
               if (isChimeEnabled && !isMuted) {
                 playSingingBowlChime(150); // Lower tone to signal transition
               }
-              
-              if (currentStepIndex < YOGA_SEQUENCE.length - 1) {
-                if (autoPlayNext) {
-                  // Transition to next step
-                  setTimeout(() => {
-                    setCurrentStepIndex(idx => idx + 1);
-                    setPracticePhase("narration");
-                  }, 1500); // 1.5s gentle transition pause
-                } else {
-                  setIsPlaying(false);
-                }
-                // Last step completed! End session
-                setIsPlaying(false);
-                setScreen("completed");
-              }
+              setPracticePhase("uscita");
               return 0;
             }
             return prev - 1;
@@ -408,6 +394,12 @@ export default function App() {
     };
   }, [isPlaying, practicePhase, currentStepIndex, autoPlayNext, isChimeEnabled, isMuted]);
 
+  // Reset practice phase to narration when changing step index
+  useEffect(() => {
+    setPracticePhase("narration");
+    setActiveTab("entrata");
+  }, [currentStepIndex]);
+
   // Synchronize audio / speech synthesis element
   useEffect(() => {
     // 1. Clean up any ongoing playback first
@@ -418,85 +410,127 @@ export default function App() {
       audioRef.current.onerror = null;
     }
 
+    const scriptParts = currentStep.speechScript.split(" | ");
+    const mantenimentoScript = scriptParts[0] || "";
+    const uscitaScript = scriptParts[1] || "";
+
+    const handleUscitaEnd = () => {
+      if (currentStepIndex < activeSequence.length - 1) {
+        if (autoPlayNext) {
+          setCurrentStepIndex(idx => idx + 1);
+          setPracticePhase("narration");
+        } else {
+          setIsPlaying(false);
+        }
+      } else {
+        setIsPlaying(false);
+        setScreen("completed");
+      }
+    };
+
     if (voiceEngine === "system") {
       if (isPlaying) {
-        const utterance = new SpeechSynthesisUtterance(currentStep.speechScript);
-        utterance.lang = "it-IT";
-        
-        // Select an Italian voice if available
-        const voices = window.speechSynthesis.getVoices();
-        const itVoice = voices.find(v => v.lang.startsWith("it-") || v.lang === "it_IT");
-        if (itVoice) {
-          utterance.voice = itVoice;
-        }
-        utterance.rate = 0.85; // Relaxing, slightly slower pace for yoga
-        utterance.volume = isMuted ? 0 : 1;
-
-        utterance.onend = () => {
-          setPracticePhase("hold");
-          setCurrentHoldRemaining(calculatedHoldTime);
-          if (isChimeEnabled && !isMuted) {
-            playSingingBowlChime(220); // standard warm chime
+        if (practicePhase === "narration") {
+          const utterance = new SpeechSynthesisUtterance(mantenimentoScript);
+          utterance.lang = "it-IT";
+          
+          const voices = window.speechSynthesis.getVoices();
+          const itVoice = voices.find(v => v.lang.startsWith("it-") || v.lang === "it_IT");
+          if (itVoice) {
+            utterance.voice = itVoice;
           }
-        };
+          utterance.rate = 0.85; // Relaxing, slightly slower pace for yoga
+          utterance.volume = isMuted ? 0 : 1;
 
-        utterance.onerror = (e) => {
-          console.error("SpeechSynthesis error:", e);
-          setIsPlaying(false);
-        };
+          utterance.onend = () => {
+            setPracticePhase("hold");
+            setCurrentHoldRemaining(10);
+            if (isChimeEnabled && !isMuted) {
+              playSingingBowlChime(220); // standard warm chime
+            }
+          };
 
-        window.speechSynthesis.speak(utterance);
+          utterance.onerror = (e) => {
+            console.error("SpeechSynthesis error:", e);
+            setIsPlaying(false);
+          };
+
+          window.speechSynthesis.speak(utterance);
+        } else if (practicePhase === "uscita") {
+          if (uscitaScript.trim()) {
+            const utterance = new SpeechSynthesisUtterance(uscitaScript);
+            utterance.lang = "it-IT";
+            
+            const voices = window.speechSynthesis.getVoices();
+            const itVoice = voices.find(v => v.lang.startsWith("it-") || v.lang === "it_IT");
+            if (itVoice) {
+              utterance.voice = itVoice;
+            }
+            utterance.rate = 0.85;
+            utterance.volume = isMuted ? 0 : 1;
+
+            utterance.onend = () => {
+              handleUscitaEnd();
+            };
+
+            utterance.onerror = (e) => {
+              console.error("SpeechSynthesis error:", e);
+              setIsPlaying(false);
+            };
+
+            window.speechSynthesis.speak(utterance);
+          } else {
+            handleUscitaEnd();
+          }
+        }
       }
-
-      // Reset tab to "entrata" whenever changing steps
-      setActiveTab("entrata");
-      setPracticePhase("narration");
 
       return () => {
         window.speechSynthesis.cancel();
       };
     } else {
       // AI Mode
-      const storedKey = localStorage.getItem("custom_gemini_api_key");
-      const audioUrl = `/api/audio/${currentStep.id}${storedKey ? `?apiKey=${encodeURIComponent(storedKey)}` : ""}`;
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-      audio.muted = isMuted;
+      if (isPlaying && (practicePhase === "narration" || practicePhase === "uscita")) {
+        const storedKey = localStorage.getItem("custom_gemini_api_key");
+        const audioUrl = `/api/audio/${currentStep.id}?phase=${practicePhase === "uscita" ? "uscita" : "mantenimento"}${storedKey ? `&apiKey=${encodeURIComponent(storedKey)}` : ""}`;
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        audio.muted = isMuted;
 
-      audio.onended = () => {
-        setPracticePhase("hold");
-        setCurrentHoldRemaining(calculatedHoldTime);
-        if (isChimeEnabled && !isMuted) {
-          playSingingBowlChime(220); // standard warm chime
-        }
-      };
+        audio.onended = () => {
+          if (practicePhase === "narration") {
+            setPracticePhase("hold");
+            setCurrentHoldRemaining(10);
+            if (isChimeEnabled && !isMuted) {
+              playSingingBowlChime(220); // standard warm chime
+            }
+          } else if (practicePhase === "uscita") {
+            handleUscitaEnd();
+          }
+        };
 
-      audio.onerror = (e) => {
-        console.warn("AI Voice failed or quota exceeded. Automatically falling back to browser system voice.", e);
-        setHasQuotaError(true);
-        setVoiceEngine("system");
-      };
+        audio.onerror = (e) => {
+          console.warn("AI Voice failed or quota exceeded. Automatically falling back to browser system voice.", e);
+          setHasQuotaError(true);
+          setVoiceEngine("system");
+        };
 
-      if (isPlaying) {
         audio.play().catch(err => {
           console.warn("Playback prevented or error:", err);
-          // Auto-fallback if blocked or if source fails (e.g., quota 429)
           setHasQuotaError(true);
           setVoiceEngine("system");
         });
       }
 
-      // Reset tab to "entrata" whenever changing steps
-      setActiveTab("entrata");
-      setPracticePhase("narration");
-
       return () => {
-        audio.pause();
-        audio.onended = null;
-        audio.onerror = null;
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.onended = null;
+          audioRef.current.onerror = null;
+        }
       };
     }
-  }, [currentStepIndex, voiceEngine, isPlaying, isMuted, calculatedHoldTime, isChimeEnabled]);
+  }, [currentStepIndex, voiceEngine, isPlaying, isMuted, isChimeEnabled, practicePhase, autoPlayNext]);
 
   // Handle Play/Pause
   const togglePlay = () => {
@@ -934,7 +968,7 @@ export default function App() {
                       setIsPlaying(true);
                       setPracticePhase("narration");
                       setTotalSecondsRemaining(duration * 60);
-                      setCurrentHoldRemaining(calculatedHoldTime);
+                      setCurrentHoldRemaining(10);
                     }}
                     className="flex-1 bg-[#2d3e35] hover:bg-[#1a2b23] text-white font-bold py-4 px-6 rounded-2xl transition-all shadow-md shadow-[#2d3e35]/15 hover:shadow-lg flex items-center justify-center gap-2 text-base"
                     id="start_practice_btn"
@@ -1118,10 +1152,14 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-1.5 bg-white/40 border border-white/50 px-3 py-1 rounded-full text-xs font-mono font-bold text-[#2d3e35]/80 shadow-sm transition-all duration-300">
                         <Clock className="w-3.5 h-3.5 text-[#7ba691] animate-pulse" />
-                        {practicePhase === "narration" ? (
-                          <span className="text-[#7ba691] animate-pulse">Ascolto...</span>
-                        ) : (
-                          <span>Tenuta: {currentHoldRemaining}s</span>
+                        {practicePhase === "narration" && (
+                          <span className="text-[#7ba691] animate-pulse">Entrata...</span>
+                        )}
+                        {practicePhase === "hold" && (
+                          <span className="text-[#7ba691] font-bold">Mantenimento: {currentHoldRemaining}s</span>
+                        )}
+                        {practicePhase === "uscita" && (
+                          <span className="text-[#7ba691] animate-pulse">Uscita...</span>
                         )}
                       </div>
                     </div>

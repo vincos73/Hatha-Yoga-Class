@@ -80,8 +80,9 @@ function downsamplePCM2x(buffer: Buffer): Buffer {
 let cloudTtsBypassedUntil = 0;
 
 // Generate step audio PCM from Gemini or cache
-async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow = false, customApiKey?: string): Promise<Buffer> {
-  const cachePath = path.join(CACHE_DIR, `${stepId}.pcm`);
+async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow = false, customApiKey?: string, cacheKey?: string): Promise<Buffer> {
+  const key = cacheKey || stepId;
+  const cachePath = path.join(CACHE_DIR, `${key}.pcm`);
   
   if (fs.existsSync(cachePath)) {
     return fs.readFileSync(cachePath);
@@ -104,7 +105,7 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
     return fallbackBuffer;
   }
   
-  console.log(`[TTS] Requesting voice for ${stepId}${customApiKey ? " using custom API key" : " using default server key"}...`);
+  console.log(`[TTS] Requesting voice for ${key}${customApiKey ? " using custom API key" : " using default server key"}...`);
   let attempt = 0;
   const maxAttempts = 2;
   let delay = 1000;
@@ -272,7 +273,16 @@ app.post("/api/cache-warmup", async (req, res) => {
       }
       
       try {
-        await getStepAudioPCM(step.id, step.speechScript, false, customApiKey);
+        const parts = step.speechScript.split(" | ");
+        const mantenimentoText = parts[0] || "";
+        const uscitaText = parts[1] || "";
+        
+        if (mantenimentoText.trim()) {
+          await getStepAudioPCM(step.id, mantenimentoText, false, customApiKey, `${step.id}_mantenimento`);
+        }
+        if (uscitaText.trim()) {
+          await getStepAudioPCM(step.id, uscitaText, false, customApiKey, `${step.id}_uscita`);
+        }
         // Wait to respect rate limits (4s if custom, 21s if shared/default)
         const delay = customApiKey ? 4000 : 21000;
         await new Promise(r => setTimeout(r, delay));
@@ -284,20 +294,35 @@ app.post("/api/cache-warmup", async (req, res) => {
   })();
 });
 
-// API: Play a single step audio
+// API: Play a single step audio (mantenimento or uscita phase)
 app.get("/api/audio/:stepId", async (req, res) => {
+  const { stepId } = req.params;
   try {
-    const { stepId } = req.params;
     const step = YOGA_SEQUENCE.find(s => s.id === stepId);
     if (!step) {
       res.status(404).json({ error: "Asana non trovata." });
       return;
     }
     
+    const phase = req.query.phase as string || "mantenimento";
+    const parts = step.speechScript.split(" | ");
+    const speechText = phase === "uscita" ? (parts[1] || "") : parts[0];
+    
+    if (!speechText.trim()) {
+      const emptyBuffer = Buffer.alloc(4800); // 0.1s silence at 24000Hz 16-bit Mono
+      const wavHeader = createWavHeader(emptyBuffer.length);
+      const wavFile = Buffer.concat([wavHeader, emptyBuffer]);
+      res.setHeader("Content-Type", "audio/wav");
+      res.setHeader("Content-Length", wavFile.length);
+      res.send(wavFile);
+      return;
+    }
+
+    const cacheKey = `${step.id}_${phase === "uscita" ? "uscita" : "mantenimento"}`;
     const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
     
     // Pass true for allowThrow so that we don't swallow quota/rate errors
-    const pcmBuffer = await getStepAudioPCM(step.id, step.speechScript, true, customApiKey);
+    const pcmBuffer = await getStepAudioPCM(step.id, speechText, true, customApiKey, cacheKey);
     const wavHeader = createWavHeader(pcmBuffer.length);
     const wavFile = Buffer.concat([wavHeader, pcmBuffer]);
     
@@ -307,9 +332,9 @@ app.get("/api/audio/:stepId", async (req, res) => {
   } catch (err: any) {
     const isRateLimit = err?.message?.includes("429") || err?.message?.includes("quota") || err?.message?.includes("RESOURCE_EXHAUSTED") || err?.message?.includes("LocalFallbackActive") || err?.message?.includes("CustomApiKeyQuotaExceeded");
     if (isRateLimit) {
-      console.log(`[TTS] Cloud limit active for step ${req.params.stepId}. Utilizing local browser speech voice.`);
+      console.log(`[TTS] Cloud limit active for step ${stepId}. Utilizing local browser speech voice.`);
     } else {
-      console.log(`[TTS] Action deferred for step ${req.params.stepId}`);
+      console.log(`[TTS] Action deferred for step ${stepId}`);
     }
     res.status(isRateLimit ? 429 : 500).json({ 
       error: err?.message === "CustomApiKeyQuotaExceeded" 
@@ -345,8 +370,6 @@ app.get("/api/audio-download", async (req, res) => {
     if (durationMin < 5) durationMin = 5;
     if (durationMin > 90) durationMin = 90;
     
-    const totalDurationSec = durationMin * 60;
-    
     const customApiKey = (req.headers["x-gemini-api-key"] as string) || (req.query.apiKey as string | undefined);
     const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
     console.log(`[TTS Download] Generating combined audio of ${durationMin} minutes (${activeSequence.length} steps)${customApiKey ? " with custom API key" : ""}...`);
@@ -354,61 +377,92 @@ app.get("/api/audio-download", async (req, res) => {
     // 1. Generate any missing steps sequentially before starting the stream
     for (let i = 0; i < activeSequence.length; i++) {
       const step = activeSequence[i];
-      const cachePath = path.join(CACHE_DIR, `${step.id}.pcm`);
-      
-      if (!fs.existsSync(cachePath)) {
-        console.log(`[TTS Download] Cache miss for step ${step.id}. Generating before stream...`);
-        try {
-          await getStepAudioPCM(step.id, step.speechScript, true, customApiKey);
-          // Wait to respect rate limits (4.5s if custom, 21s if shared/default)
-          const delay = customApiKey ? 4500 : 21000;
-          await new Promise(r => setTimeout(r, delay));
-        } catch (err) {
-          console.warn(`[TTS Download] Failed to pre-generate ${step.id}, using silence fallback:`, err);
-          // Cache a silent fallback buffer so we don't repeat failing API calls
-          const fallbackBuffer = Buffer.alloc(240000);
-          fs.writeFileSync(cachePath, fallbackBuffer);
+      const parts = step.speechScript.split(" | ");
+      const mantenimentoText = parts[0] || "";
+      const uscitaText = parts[1] || "";
+
+      // Warm up mantenimento
+      if (mantenimentoText.trim()) {
+        const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
+        if (!fs.existsSync(cachePathM)) {
+          console.log(`[TTS Download] Cache miss for step ${step.id} mantenimento. Generating before stream...`);
+          try {
+            await getStepAudioPCM(step.id, mantenimentoText, true, customApiKey, `${step.id}_mantenimento`);
+            const delay = customApiKey ? 4000 : 21000;
+            await new Promise(r => setTimeout(r, delay));
+          } catch (err) {
+            console.warn(`[TTS Download] Failed to pre-generate ${step.id} mantenimento, using silence fallback:`, err);
+            fs.writeFileSync(cachePathM, Buffer.alloc(240000));
+          }
+        }
+      }
+
+      // Warm up uscita
+      if (uscitaText.trim()) {
+        const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+        if (!fs.existsSync(cachePathU)) {
+          console.log(`[TTS Download] Cache miss for step ${step.id} uscita. Generating before stream...`);
+          try {
+            await getStepAudioPCM(step.id, uscitaText, true, customApiKey, `${step.id}_uscita`);
+            const delay = customApiKey ? 4000 : 21000;
+            await new Promise(r => setTimeout(r, delay));
+          } catch (err) {
+            console.warn(`[TTS Download] Failed to pre-generate ${step.id} uscita, using silence fallback:`, err);
+            fs.writeFileSync(cachePathU, Buffer.alloc(240000));
+          }
         }
       }
     }
     
-    // 2. Snapshot the exact sizes of all cached files
-    const snapshottedOriginalLengths: Record<string, number> = {};
+    // 2. Snapshot the exact sizes of all cached files for both phases
+    const snapshottedOriginalLengths: Record<string, { mantenimento: number; uscita: number }> = {};
     for (const step of activeSequence) {
-      const cachePath = path.join(CACHE_DIR, `${step.id}.pcm`);
-      try {
-        snapshottedOriginalLengths[step.id] = fs.statSync(cachePath).size;
-      } catch (_) {
-        snapshottedOriginalLengths[step.id] = 240000;
+      const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
+      const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+      
+      let lenM = 240000;
+      if (fs.existsSync(cachePathM)) {
+        try { lenM = fs.statSync(cachePathM).size; } catch (_) {}
       }
+      
+      let lenU = 4800; // tiny silent fallback if no exit script
+      const parts = step.speechScript.split(" | ");
+      if (parts[1] && parts[1].trim()) {
+        if (fs.existsSync(cachePathU)) {
+          try { lenU = fs.statSync(cachePathU).size; } catch (_) {}
+        } else {
+          lenU = 240000;
+        }
+      } else {
+        lenU = 4800;
+      }
+      
+      snapshottedOriginalLengths[step.id] = { mantenimento: lenM, uscita: lenU };
     }
     
     // 3. Calculate downsampled lengths and total speech bytes
     let totalSpeechBytes = 0;
-    const snapshottedDownsampledLengths: Record<string, number> = {};
+    const snapshottedDownsampledLengths: Record<string, { mantenimento: number; uscita: number }> = {};
     for (const step of activeSequence) {
-      const originalLength = snapshottedOriginalLengths[step.id];
-      const numSamples = Math.floor(originalLength / 2);
-      const newNumSamples = Math.floor(numSamples / 2);
-      const downsampledLength = newNumSamples * 2;
+      const { mantenimento: lenM, uscita: lenU } = snapshottedOriginalLengths[step.id];
       
-      snapshottedDownsampledLengths[step.id] = downsampledLength;
-      totalSpeechBytes += downsampledLength;
+      const numSamplesM = Math.floor(lenM / 2);
+      const newNumSamplesM = Math.floor(numSamplesM / 2);
+      const downM = newNumSamplesM * 2;
+      
+      const numSamplesU = Math.floor(lenU / 2);
+      const newNumSamplesU = Math.floor(numSamplesU / 2);
+      const downU = newNumSamplesU * 2;
+      
+      snapshottedDownsampledLengths[step.id] = { mantenimento: downM, uscita: downU };
+      totalSpeechBytes += downM + downU;
     }
     
-    const totalSpeechSec = totalSpeechBytes / (12000 * 2);
-    
-    // 4. Distribute remaining time as pauses
-    const numPauses = activeSequence.length - 1;
-    let pauseSec = (totalDurationSec - totalSpeechSec) / numPauses;
-    if (pauseSec < 2) {
-      pauseSec = 2; // Hard floor of 2 seconds
-    }
-    
-    console.log(`[TTS Download] Calculated pause: ${pauseSec.toFixed(1)} seconds between steps.`);
-    
-    const pauseBytesSize = Math.floor(pauseSec * 12000) * 2;
-    const totalSilenceBytes = numPauses * pauseBytesSize;
+    // 4. Pauses are exactly 10 seconds per step, between mantenimento and uscita!
+    // No extra pauses between steps.
+    const holdSec = 10;
+    const holdBytesSize = Math.floor(holdSec * 12000) * 2; // 12000Hz 16-bit Mono (2 bytes per sample)
+    const totalSilenceBytes = activeSequence.length * holdBytesSize;
     
     const totalDataSize = totalSpeechBytes + totalSilenceBytes;
     const wavHeader = createWavHeader(totalDataSize, 12000);
@@ -426,56 +480,83 @@ app.get("/api/audio-download", async (req, res) => {
     // Write WAV header immediately to start download
     res.write(wavHeader);
     
-    // 6. Pre-allocate silence buffer once to reuse
-    const silenceBuffer = Buffer.alloc(pauseBytesSize);
+    // 6. Pre-allocate 10-second silence buffer once to reuse
+    const silenceBuffer = Buffer.alloc(holdBytesSize);
     
     // 7. Stream each step sequential chunk by chunk
     for (let i = 0; i < activeSequence.length; i++) {
       const step = activeSequence[i];
-      const cachePath = path.join(CACHE_DIR, `${step.id}.pcm`);
-      const targetOriginalLength = snapshottedOriginalLengths[step.id];
-      const targetDownsampledLength = snapshottedDownsampledLengths[step.id];
+      const { mantenimento: targetMOrig, uscita: targetUOrig } = snapshottedOriginalLengths[step.id];
+      const { mantenimento: targetMDown, uscita: targetUDown } = snapshottedDownsampledLengths[step.id];
       
-      let pcm: Buffer;
+      // Load and stream Mantenimento
+      const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
+      let pcmM: Buffer;
       try {
-        pcm = fs.readFileSync(cachePath);
+        pcmM = fs.readFileSync(cachePathM);
       } catch (_) {
-        pcm = Buffer.alloc(targetOriginalLength);
+        pcmM = Buffer.alloc(targetMOrig);
       }
       
-      // Ensure PCM buffer is of targetOriginalLength so we don't have sizing issues
-      let finalPCM = pcm;
-      if (pcm.length !== targetOriginalLength) {
-        if (pcm.length > targetOriginalLength) {
-          finalPCM = pcm.subarray(0, targetOriginalLength);
+      let finalPCMM = pcmM;
+      if (pcmM.length !== targetMOrig) {
+        if (pcmM.length > targetMOrig) {
+          finalPCMM = pcmM.subarray(0, targetMOrig);
         } else {
-          finalPCM = Buffer.concat([pcm, Buffer.alloc(targetOriginalLength - pcm.length)]);
+          finalPCMM = Buffer.concat([pcmM, Buffer.alloc(targetMOrig - pcmM.length)]);
         }
       }
       
-      const downsampled = downsamplePCM2x(finalPCM);
-      
-      let finalDownsampled = downsampled;
-      if (downsampled.length !== targetDownsampledLength) {
-        if (downsampled.length > targetDownsampledLength) {
-          finalDownsampled = downsampled.subarray(0, targetDownsampledLength);
+      const downM = downsamplePCM2x(finalPCMM);
+      let finalDownM = downM;
+      if (downM.length !== targetMDown) {
+        if (downM.length > targetMDown) {
+          finalDownM = downM.subarray(0, targetMDown);
         } else {
-          finalDownsampled = Buffer.concat([downsampled, Buffer.alloc(targetDownsampledLength - downsampled.length)]);
+          finalDownM = Buffer.concat([downM, Buffer.alloc(targetMDown - downM.length)]);
         }
       }
       
-      res.write(finalDownsampled);
+      res.write(finalDownM);
       
-      if (i < activeSequence.length - 1) {
-        res.write(silenceBuffer);
+      // Write 10 seconds of silence between mantenimento and uscita
+      res.write(silenceBuffer);
+      
+      // Load and stream Uscita
+      const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+      let pcmU: Buffer;
+      try {
+        pcmU = fs.readFileSync(cachePathU);
+      } catch (_) {
+        pcmU = Buffer.alloc(targetUOrig);
       }
+      
+      let finalPCMU = pcmU;
+      if (pcmU.length !== targetUOrig) {
+        if (pcmU.length > targetUOrig) {
+          finalPCMU = pcmU.subarray(0, targetUOrig);
+        } else {
+          finalPCMU = Buffer.concat([pcmU, Buffer.alloc(targetUOrig - pcmU.length)]);
+        }
+      }
+      
+      const downU = downsamplePCM2x(finalPCMU);
+      let finalDownU = downU;
+      if (downU.length !== targetUDown) {
+        if (downU.length > targetUDown) {
+          finalDownU = downU.subarray(0, targetUDown);
+        } else {
+          finalDownU = Buffer.concat([downU, Buffer.alloc(targetUDown - downU.length)]);
+        }
+      }
+      
+      res.write(finalDownU);
     }
     
     res.end();
     console.log(`[TTS Download] Audio stream of ${durationMin} minutes completed successfully.`);
   } catch (err: any) {
     console.error("[TTS Download] Combined session audio generation failed:", err);
-    // Only send status if headers haven't been sent yet
     if (!res.headersSent) {
       res.status(500).json({ error: "Impossibile scaricare l'audio. Riprova più tardi." });
     }
