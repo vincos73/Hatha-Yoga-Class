@@ -4,7 +4,7 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
-import { YOGA_SEQUENCE, getSequenceForDuration } from "./src/data/yogaSequence.js";
+import { YOGA_SEQUENCE, getSequenceForDuration, type YogaStep } from "./src/data/yogaSequence.js";
 
 dotenv.config();
 
@@ -61,18 +61,17 @@ function createWavHeader(pcmLength: number, sampleRate = 24000, numChannels = 1,
   return header;
 }
 
-// Helper to downsample 16-bit Mono PCM from 24000Hz to 12000Hz (cuts size in half)
+// Helper to downsample 16-bit Mono PCM from 24000Hz to 12000Hz (cuts size in half).
+// Uses a 2-tap boxcar average (anti-aliasing) instead of naive sample dropping, with signed reads/writes.
 function downsamplePCM2x(buffer: Buffer): Buffer {
   const numSamples = Math.floor(buffer.length / 2);
   const newNumSamples = Math.floor(numSamples / 2);
   const output = Buffer.alloc(newNumSamples * 2);
-  
   for (let i = 0; i < newNumSamples; i++) {
-    const sourceOffset = i * 4;
-    const destOffset = i * 2;
-    if (sourceOffset + 1 < buffer.length) {
-      output.writeUInt16LE(buffer.readUInt16LE(sourceOffset), destOffset);
-    }
+    const srcOffset = i * 4;
+    const s1 = buffer.readInt16LE(srcOffset);
+    const s2 = srcOffset + 3 < buffer.length ? buffer.readInt16LE(srcOffset + 2) : s1;
+    output.writeInt16LE(Math.round((s1 + s2) / 2), i * 2);
   }
   return output;
 }
@@ -201,6 +200,60 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
   return fallbackBuffer;
 }
 
+// Helper to find steps whose mantenimento/uscita audio is not yet cached
+function collectMissingSteps(steps: YogaStep[]): YogaStep[] {
+  const missing: YogaStep[] = [];
+  for (const step of steps) {
+    const parts = step.speechScript.split(" | ");
+    if (parts[0]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`))) missing.push(step);
+    else if (parts[1]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_uscita.pcm`))) missing.push(step);
+  }
+  return missing;
+}
+
+// Generate (and cache) the given steps' voice audio sequentially in the background, respecting rate limits
+async function warmStepsInBackground(steps: YogaStep[], customApiKey?: string): Promise<void> {
+  if (!customApiKey) {
+    warmupRunning = true;
+  }
+  try {
+    console.log(`[TTS Cache] Starting background cache warmup for ${steps.length} steps...`);
+    for (const step of steps) {
+      // If we are currently rate-limited and NOT using a custom API key, wait until the cooldown expires
+      if (!customApiKey) {
+        while (Date.now() < cloudTtsBypassedUntil) {
+          const waitTime = Math.max(1000, cloudTtsBypassedUntil - Date.now());
+          console.log(`[TTS Cache] Rate limit cooldown active. Waiting ${Math.round(waitTime / 1000)}s before trying step: ${step.id}`);
+          await new Promise(r => setTimeout(r, waitTime));
+        }
+      }
+
+      try {
+        const parts = step.speechScript.split(" | ");
+        const mantenimentoText = parts[0] || "";
+        const uscitaText = parts[1] || "";
+
+        if (mantenimentoText.trim()) {
+          await getStepAudioPCM(step.id, mantenimentoText, false, customApiKey, `${step.id}_mantenimento`);
+        }
+        if (uscitaText.trim()) {
+          await getStepAudioPCM(step.id, uscitaText, false, customApiKey, `${step.id}_uscita`);
+        }
+        // Wait to respect rate limits (4s if custom, 21s if shared/default)
+        const delay = customApiKey ? 4000 : 21000;
+        await new Promise(r => setTimeout(r, delay));
+      } catch (err) {
+        console.log(`[TTS Cache] Soft bypass for ${step.id}:`, err);
+      }
+    }
+    console.log("[TTS Cache] Warmup process settled. Total cached files:", fs.readdirSync(CACHE_DIR).length);
+  } finally {
+    if (!customApiKey) {
+      warmupRunning = false;
+    }
+  }
+}
+
 // API: Health Check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", cachedStepsCount: fs.readdirSync(CACHE_DIR).length });
@@ -280,47 +333,9 @@ app.post("/api/cache-warmup", async (req, res) => {
   }
   
   res.json({ message: "Inizio preriscaldamento della cache in background." });
-  
+
   // Warm up in background so response is non-blocking
-  (async () => {
-    if (!customApiKey) {
-      warmupRunning = true;
-    }
-    try {
-      console.log(`[TTS Cache] Starting background cache warmup for ${durationMin}m (${activeSequence.length} steps)...`);
-      for (const step of activeSequence) {
-        // If we are currently rate-limited and NOT using a custom API key, wait until the cooldown expires
-        if (!customApiKey) {
-          while (Date.now() < cloudTtsBypassedUntil) {
-            const waitTime = Math.max(1000, cloudTtsBypassedUntil - Date.now());
-            console.log(`[TTS Cache] Rate limit cooldown active. Waiting ${Math.round(waitTime / 1000)}s before trying step: ${step.id}`);
-            await new Promise(r => setTimeout(r, waitTime));
-          }
-        }
-
-        try {
-          const parts = step.speechScript.split(" | ");
-          const mantenimentoText = parts[0] || "";
-          const uscitaText = parts[1] || "";
-
-          if (mantenimentoText.trim()) {
-            await getStepAudioPCM(step.id, mantenimentoText, false, customApiKey, `${step.id}_mantenimento`);
-          }
-          if (uscitaText.trim()) {
-            await getStepAudioPCM(step.id, uscitaText, false, customApiKey, `${step.id}_uscita`);
-          }
-          // Wait to respect rate limits (4s if custom, 21s if shared/default)
-          const delay = customApiKey ? 4000 : 21000;
-          await new Promise(r => setTimeout(r, delay));
-        } catch (err) {
-          console.log(`[TTS Cache] Soft bypass for ${step.id}:`, err);
-        }
-      }
-      console.log("[TTS Cache] Warmup process settled. Total cached files:", fs.readdirSync(CACHE_DIR).length);
-    } finally {
-      warmupRunning = false;
-    }
-  })();
+  warmStepsInBackground(activeSequence, customApiKey).catch(err => console.error("[TTS Cache] Background warmup failed:", err));
 });
 
 // API: Play a single step audio (mantenimento or uscita phase)
@@ -374,21 +389,150 @@ app.get("/api/audio/:stepId", async (req, res) => {
   }
 });
 
-// Helper to estimate or fetch step PCM lengths
-function getStepPCMInfo(stepId: string, cacheDir: string): { downsampledLength: number } {
-  const cachePath = path.join(cacheDir, `${stepId}.pcm`);
-  let originalLength = 240000; // default 5 seconds silence at 24000Hz (16-bit Mono)
-  if (fs.existsSync(cachePath)) {
-    try {
-      originalLength = fs.statSync(cachePath).size;
-    } catch (_) {}
+// Stream the combined session WAV: snapshot cached PCM sizes, downsample, write the header,
+// then stream each step's audio (mantenimento -> 10s silence -> uscita).
+function streamCombinedAudio(activeSequence: YogaStep[], res: express.Response, filename: string): void {
+  // 2. Snapshot the exact sizes of all cached files for both phases
+  const snapshottedOriginalLengths: Record<string, { mantenimento: number; uscita: number }> = {};
+  for (const step of activeSequence) {
+    const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
+    const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+
+    let lenM = 240000;
+    if (fs.existsSync(cachePathM)) {
+      try { lenM = fs.statSync(cachePathM).size; } catch (_) {}
+    }
+
+    let lenU = 4800; // tiny silent fallback if no exit script
+    const parts = step.speechScript.split(" | ");
+    if (parts[1] && parts[1].trim()) {
+      if (fs.existsSync(cachePathU)) {
+        try { lenU = fs.statSync(cachePathU).size; } catch (_) {}
+      } else {
+        lenU = 240000;
+      }
+    } else {
+      lenU = 4800;
+    }
+
+    snapshottedOriginalLengths[step.id] = { mantenimento: lenM, uscita: lenU };
   }
-  
-  const numSamples = Math.floor(originalLength / 2);
-  const newNumSamples = Math.floor(numSamples / 2);
-  const downsampledLength = newNumSamples * 2;
-  
-  return { downsampledLength };
+
+  // 3. Calculate downsampled lengths and total speech bytes
+  let totalSpeechBytes = 0;
+  const snapshottedDownsampledLengths: Record<string, { mantenimento: number; uscita: number }> = {};
+  for (const step of activeSequence) {
+    const { mantenimento: lenM, uscita: lenU } = snapshottedOriginalLengths[step.id];
+
+    const numSamplesM = Math.floor(lenM / 2);
+    const newNumSamplesM = Math.floor(numSamplesM / 2);
+    const downM = newNumSamplesM * 2;
+
+    const numSamplesU = Math.floor(lenU / 2);
+    const newNumSamplesU = Math.floor(numSamplesU / 2);
+    const downU = newNumSamplesU * 2;
+
+    snapshottedDownsampledLengths[step.id] = { mantenimento: downM, uscita: downU };
+    totalSpeechBytes += downM + downU;
+  }
+
+  // 4. Pauses are exactly 10 seconds per step, between mantenimento and uscita!
+  // No extra pauses between steps.
+  const holdSec = 10;
+  const holdBytesSize = Math.floor(holdSec * 12000) * 2; // 12000Hz 16-bit Mono (2 bytes per sample)
+  const totalSilenceBytes = activeSequence.length * holdBytesSize;
+
+  const totalDataSize = totalSpeechBytes + totalSilenceBytes;
+  const wavHeader = createWavHeader(totalDataSize, 12000);
+
+  // 5. Set response headers for direct stream download with anti-buffering & no-cache
+  res.setHeader("Content-Type", "audio/wav");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("x-audio-total-bytes", (totalDataSize + 44).toString());
+  res.setHeader("Access-Control-Expose-Headers", "x-audio-total-bytes");
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+
+  // Write WAV header immediately to start download
+  res.write(wavHeader);
+
+  // 6. Pre-allocate 10-second silence buffer once to reuse
+  const silenceBuffer = Buffer.alloc(holdBytesSize);
+
+  // 7. Stream each step sequential chunk by chunk
+  for (let i = 0; i < activeSequence.length; i++) {
+    const step = activeSequence[i];
+    const { mantenimento: targetMOrig, uscita: targetUOrig } = snapshottedOriginalLengths[step.id];
+    const { mantenimento: targetMDown, uscita: targetUDown } = snapshottedDownsampledLengths[step.id];
+
+    // Load and stream Mantenimento
+    const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
+    let pcmM: Buffer;
+    try {
+      pcmM = fs.readFileSync(cachePathM);
+    } catch (_) {
+      pcmM = Buffer.alloc(targetMOrig);
+    }
+
+    let finalPCMM = pcmM;
+    if (pcmM.length !== targetMOrig) {
+      if (pcmM.length > targetMOrig) {
+        finalPCMM = pcmM.subarray(0, targetMOrig);
+      } else {
+        finalPCMM = Buffer.concat([pcmM, Buffer.alloc(targetMOrig - pcmM.length)]);
+      }
+    }
+
+    const downM = downsamplePCM2x(finalPCMM);
+    let finalDownM = downM;
+    if (downM.length !== targetMDown) {
+      if (downM.length > targetMDown) {
+        finalDownM = downM.subarray(0, targetMDown);
+      } else {
+        finalDownM = Buffer.concat([downM, Buffer.alloc(targetMDown - downM.length)]);
+      }
+    }
+
+    res.write(finalDownM);
+
+    // Write 10 seconds of silence between mantenimento and uscita
+    res.write(silenceBuffer);
+
+    // Load and stream Uscita
+    const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+    let pcmU: Buffer;
+    try {
+      pcmU = fs.readFileSync(cachePathU);
+    } catch (_) {
+      pcmU = Buffer.alloc(targetUOrig);
+    }
+
+    let finalPCMU = pcmU;
+    if (pcmU.length !== targetUOrig) {
+      if (pcmU.length > targetUOrig) {
+        finalPCMU = pcmU.subarray(0, targetUOrig);
+      } else {
+        finalPCMU = Buffer.concat([pcmU, Buffer.alloc(targetUOrig - pcmU.length)]);
+      }
+    }
+
+    const downU = downsamplePCM2x(finalPCMU);
+    let finalDownU = downU;
+    if (downU.length !== targetUDown) {
+      if (downU.length > targetUDown) {
+        finalDownU = downU.subarray(0, targetUDown);
+      } else {
+        finalDownU = Buffer.concat([downU, Buffer.alloc(targetUDown - downU.length)]);
+      }
+    }
+
+    res.write(finalDownU);
+  }
+
+  res.end();
+  console.log(`[TTS Download] Audio stream "${filename}" completed successfully (${activeSequence.length} steps).`);
 }
 
 // API: Download combined session audio with customized silence pauses
@@ -398,202 +542,22 @@ app.get("/api/audio-download", async (req, res) => {
     // Clamp defensively between 5 and 90 minutes
     if (durationMin < 5) durationMin = 5;
     if (durationMin > 90) durationMin = 90;
-    
+
     const customApiKey = req.headers["x-gemini-api-key"] as string | undefined;
     const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
     console.log(`[TTS Download] Generating combined audio of ${durationMin} minutes (${activeSequence.length} steps)${customApiKey ? " with custom API key" : ""}...`);
-    
-    // 1. Generate any missing steps sequentially before starting the stream
-    for (let i = 0; i < activeSequence.length; i++) {
-      const step = activeSequence[i];
-      const parts = step.speechScript.split(" | ");
-      const mantenimentoText = parts[0] || "";
-      const uscitaText = parts[1] || "";
 
-      // Warm up mantenimento
-      if (mantenimentoText.trim()) {
-        const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
-        if (!fs.existsSync(cachePathM)) {
-          console.log(`[TTS Download] Cache miss for step ${step.id} mantenimento. Generating before stream...`);
-          try {
-            await getStepAudioPCM(step.id, mantenimentoText, true, customApiKey, `${step.id}_mantenimento`);
-            const delay = customApiKey ? 4000 : 21000;
-            await new Promise(r => setTimeout(r, delay));
-          } catch (err) {
-            console.warn(`[TTS Download] Failed to pre-generate ${step.id} mantenimento, using silence fallback:`, err);
-          }
-        }
+    const missing = collectMissingSteps(activeSequence);
+    if (missing.length > 0) {
+      // Kick off background generation unless a default-key warmup is already running
+      if (customApiKey || !warmupRunning) {
+        warmStepsInBackground(missing, customApiKey).catch(err => console.error("[TTS Download] Background warmup failed:", err));
       }
-
-      // Warm up uscita
-      if (uscitaText.trim()) {
-        const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
-        if (!fs.existsSync(cachePathU)) {
-          console.log(`[TTS Download] Cache miss for step ${step.id} uscita. Generating before stream...`);
-          try {
-            await getStepAudioPCM(step.id, uscitaText, true, customApiKey, `${step.id}_uscita`);
-            const delay = customApiKey ? 4000 : 21000;
-            await new Promise(r => setTimeout(r, delay));
-          } catch (err) {
-            console.warn(`[TTS Download] Failed to pre-generate ${step.id} uscita, using silence fallback:`, err);
-          }
-        }
-      }
-    }
-
-    // Abort with a clear error instead of streaming a WAV with silent holes
-    const missingSteps: string[] = [];
-    for (const step of activeSequence) {
-      const parts = step.speechScript.split(" | ");
-      if (parts[0]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`))) missingSteps.push(step.id);
-      else if (parts[1]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_uscita.pcm`))) missingSteps.push(step.id);
-    }
-    if (missingSteps.length > 0) {
-      res.status(409).json({ error: `${missingSteps.length} asana non sono ancora state sintetizzate (quota esaurita?). Riprova tra qualche minuto o collega una chiave API personale.` });
+      res.status(409).json({ error: `${missing.length} asana non sono ancora pronte. La generazione è partita in background: riprova tra qualche minuto, oppure collega una chiave API personale per velocizzarla.` });
       return;
     }
 
-    // 2. Snapshot the exact sizes of all cached files for both phases
-    const snapshottedOriginalLengths: Record<string, { mantenimento: number; uscita: number }> = {};
-    for (const step of activeSequence) {
-      const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
-      const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
-      
-      let lenM = 240000;
-      if (fs.existsSync(cachePathM)) {
-        try { lenM = fs.statSync(cachePathM).size; } catch (_) {}
-      }
-      
-      let lenU = 4800; // tiny silent fallback if no exit script
-      const parts = step.speechScript.split(" | ");
-      if (parts[1] && parts[1].trim()) {
-        if (fs.existsSync(cachePathU)) {
-          try { lenU = fs.statSync(cachePathU).size; } catch (_) {}
-        } else {
-          lenU = 240000;
-        }
-      } else {
-        lenU = 4800;
-      }
-      
-      snapshottedOriginalLengths[step.id] = { mantenimento: lenM, uscita: lenU };
-    }
-    
-    // 3. Calculate downsampled lengths and total speech bytes
-    let totalSpeechBytes = 0;
-    const snapshottedDownsampledLengths: Record<string, { mantenimento: number; uscita: number }> = {};
-    for (const step of activeSequence) {
-      const { mantenimento: lenM, uscita: lenU } = snapshottedOriginalLengths[step.id];
-      
-      const numSamplesM = Math.floor(lenM / 2);
-      const newNumSamplesM = Math.floor(numSamplesM / 2);
-      const downM = newNumSamplesM * 2;
-      
-      const numSamplesU = Math.floor(lenU / 2);
-      const newNumSamplesU = Math.floor(numSamplesU / 2);
-      const downU = newNumSamplesU * 2;
-      
-      snapshottedDownsampledLengths[step.id] = { mantenimento: downM, uscita: downU };
-      totalSpeechBytes += downM + downU;
-    }
-    
-    // 4. Pauses are exactly 10 seconds per step, between mantenimento and uscita!
-    // No extra pauses between steps.
-    const holdSec = 10;
-    const holdBytesSize = Math.floor(holdSec * 12000) * 2; // 12000Hz 16-bit Mono (2 bytes per sample)
-    const totalSilenceBytes = activeSequence.length * holdBytesSize;
-    
-    const totalDataSize = totalSpeechBytes + totalSilenceBytes;
-    const wavHeader = createWavHeader(totalDataSize, 12000);
-    
-    // 5. Set response headers for direct stream download with anti-buffering & no-cache
-    res.setHeader("Content-Type", "audio/wav");
-    res.setHeader("Content-Disposition", `attachment; filename="sequenza_yoga_hatha_${durationMin}min.wav"`);
-    res.setHeader("x-audio-total-bytes", (totalDataSize + 44).toString());
-    res.setHeader("Access-Control-Expose-Headers", "x-audio-total-bytes");
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    
-    // Write WAV header immediately to start download
-    res.write(wavHeader);
-    
-    // 6. Pre-allocate 10-second silence buffer once to reuse
-    const silenceBuffer = Buffer.alloc(holdBytesSize);
-    
-    // 7. Stream each step sequential chunk by chunk
-    for (let i = 0; i < activeSequence.length; i++) {
-      const step = activeSequence[i];
-      const { mantenimento: targetMOrig, uscita: targetUOrig } = snapshottedOriginalLengths[step.id];
-      const { mantenimento: targetMDown, uscita: targetUDown } = snapshottedDownsampledLengths[step.id];
-      
-      // Load and stream Mantenimento
-      const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
-      let pcmM: Buffer;
-      try {
-        pcmM = fs.readFileSync(cachePathM);
-      } catch (_) {
-        pcmM = Buffer.alloc(targetMOrig);
-      }
-      
-      let finalPCMM = pcmM;
-      if (pcmM.length !== targetMOrig) {
-        if (pcmM.length > targetMOrig) {
-          finalPCMM = pcmM.subarray(0, targetMOrig);
-        } else {
-          finalPCMM = Buffer.concat([pcmM, Buffer.alloc(targetMOrig - pcmM.length)]);
-        }
-      }
-      
-      const downM = downsamplePCM2x(finalPCMM);
-      let finalDownM = downM;
-      if (downM.length !== targetMDown) {
-        if (downM.length > targetMDown) {
-          finalDownM = downM.subarray(0, targetMDown);
-        } else {
-          finalDownM = Buffer.concat([downM, Buffer.alloc(targetMDown - downM.length)]);
-        }
-      }
-      
-      res.write(finalDownM);
-      
-      // Write 10 seconds of silence between mantenimento and uscita
-      res.write(silenceBuffer);
-      
-      // Load and stream Uscita
-      const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
-      let pcmU: Buffer;
-      try {
-        pcmU = fs.readFileSync(cachePathU);
-      } catch (_) {
-        pcmU = Buffer.alloc(targetUOrig);
-      }
-      
-      let finalPCMU = pcmU;
-      if (pcmU.length !== targetUOrig) {
-        if (pcmU.length > targetUOrig) {
-          finalPCMU = pcmU.subarray(0, targetUOrig);
-        } else {
-          finalPCMU = Buffer.concat([pcmU, Buffer.alloc(targetUOrig - pcmU.length)]);
-        }
-      }
-      
-      const downU = downsamplePCM2x(finalPCMU);
-      let finalDownU = downU;
-      if (downU.length !== targetUDown) {
-        if (downU.length > targetUDown) {
-          finalDownU = downU.subarray(0, targetUDown);
-        } else {
-          finalDownU = Buffer.concat([downU, Buffer.alloc(targetUDown - downU.length)]);
-        }
-      }
-      
-      res.write(finalDownU);
-    }
-    
-    res.end();
-    console.log(`[TTS Download] Audio stream of ${durationMin} minutes completed successfully.`);
+    streamCombinedAudio(activeSequence, res, `sequenza_yoga_hatha_${durationMin}min.wav`);
   } catch (err: any) {
     console.error("[TTS Download] Combined session audio generation failed:", err);
     if (!res.headersSent) {
@@ -610,7 +574,7 @@ app.post("/api/audio-download-custom", async (req, res) => {
       res.status(400).json({ error: "Sequenza vuota o non valida." });
       return;
     }
-    
+
     // Map custom step IDs to full step objects
     const activeSequence: typeof YOGA_SEQUENCE = [];
     for (const item of steps) {
@@ -619,205 +583,26 @@ app.post("/api/audio-download-custom", async (req, res) => {
         activeSequence.push(step);
       }
     }
-    
+
     if (activeSequence.length === 0) {
       res.status(400).json({ error: "Nessun asana valido trovato nella sequenza." });
       return;
     }
-    
+
     const customApiKey = req.headers["x-gemini-api-key"] as string | undefined;
     console.log(`[TTS Download Custom] Generating custom combined audio of ${activeSequence.length} steps${customApiKey ? " with custom API key" : ""}...`);
-    
-    // 1. Generate any missing steps sequentially before starting the stream
-    for (let i = 0; i < activeSequence.length; i++) {
-      const step = activeSequence[i];
-      const parts = step.speechScript.split(" | ");
-      const mantenimentoText = parts[0] || "";
-      const uscitaText = parts[1] || "";
 
-      // Warm up mantenimento
-      if (mantenimentoText.trim()) {
-        const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
-        if (!fs.existsSync(cachePathM)) {
-          console.log(`[TTS Download Custom] Cache miss for step ${step.id} mantenimento. Generating before stream...`);
-          try {
-            await getStepAudioPCM(step.id, mantenimentoText, true, customApiKey, `${step.id}_mantenimento`);
-            const delay = customApiKey ? 4000 : 21000;
-            await new Promise(r => setTimeout(r, delay));
-          } catch (err) {
-            console.warn(`[TTS Download Custom] Failed to pre-generate ${step.id} mantenimento, using silence fallback:`, err);
-          }
-        }
+    const missing = collectMissingSteps(activeSequence);
+    if (missing.length > 0) {
+      // Kick off background generation unless a default-key warmup is already running
+      if (customApiKey || !warmupRunning) {
+        warmStepsInBackground(missing, customApiKey).catch(err => console.error("[TTS Download] Background warmup failed:", err));
       }
-
-      // Warm up uscita
-      if (uscitaText.trim()) {
-        const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
-        if (!fs.existsSync(cachePathU)) {
-          console.log(`[TTS Download Custom] Cache miss for step ${step.id} uscita. Generating before stream...`);
-          try {
-            await getStepAudioPCM(step.id, uscitaText, true, customApiKey, `${step.id}_uscita`);
-            const delay = customApiKey ? 4000 : 21000;
-            await new Promise(r => setTimeout(r, delay));
-          } catch (err) {
-            console.warn(`[TTS Download Custom] Failed to pre-generate ${step.id} uscita, using silence fallback:`, err);
-          }
-        }
-      }
-    }
-
-    // Abort with a clear error instead of streaming a WAV with silent holes
-    const missingSteps: string[] = [];
-    for (const step of activeSequence) {
-      const parts = step.speechScript.split(" | ");
-      if (parts[0]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`))) missingSteps.push(step.id);
-      else if (parts[1]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_uscita.pcm`))) missingSteps.push(step.id);
-    }
-    if (missingSteps.length > 0) {
-      res.status(409).json({ error: `${missingSteps.length} asana non sono ancora state sintetizzate (quota esaurita?). Riprova tra qualche minuto o collega una chiave API personale.` });
+      res.status(409).json({ error: `${missing.length} asana non sono ancora pronte. La generazione è partita in background: riprova tra qualche minuto, oppure collega una chiave API personale per velocizzarla.` });
       return;
     }
 
-    // 2. Snapshot the exact sizes of all cached files for both phases
-    const snapshottedOriginalLengths: Record<string, { mantenimento: number; uscita: number }> = {};
-    for (const step of activeSequence) {
-      const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
-      const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
-      
-      let lenM = 240000;
-      if (fs.existsSync(cachePathM)) {
-        try { lenM = fs.statSync(cachePathM).size; } catch (_) {}
-      }
-      
-      let lenU = 4800; // tiny silent fallback if no exit script
-      const parts = step.speechScript.split(" | ");
-      if (parts[1] && parts[1].trim()) {
-        if (fs.existsSync(cachePathU)) {
-          try { lenU = fs.statSync(cachePathU).size; } catch (_) {}
-        } else {
-          lenU = 240000;
-        }
-      } else {
-        lenU = 4800;
-      }
-      
-      snapshottedOriginalLengths[step.id] = { mantenimento: lenM, uscita: lenU };
-    }
-    
-    // 3. Calculate downsampled lengths and total speech bytes
-    let totalSpeechBytes = 0;
-    const snapshottedDownsampledLengths: Record<string, { mantenimento: number; uscita: number }> = {};
-    for (const step of activeSequence) {
-      const { mantenimento: lenM, uscita: lenU } = snapshottedOriginalLengths[step.id];
-      
-      const numSamplesM = Math.floor(lenM / 2);
-      const newNumSamplesM = Math.floor(numSamplesM / 2);
-      const downM = newNumSamplesM * 2;
-      
-      const numSamplesU = Math.floor(lenU / 2);
-      const newNumSamplesU = Math.floor(numSamplesU / 2);
-      const downU = newNumSamplesU * 2;
-      
-      snapshottedDownsampledLengths[step.id] = { mantenimento: downM, uscita: downU };
-      totalSpeechBytes += downM + downU;
-    }
-    
-    // 4. Pauses are exactly 10 seconds per step, between mantenimento and uscita
-    const holdSec = 10;
-    const holdBytesSize = Math.floor(holdSec * 12000) * 2; // 12000Hz 16-bit Mono (2 bytes per sample)
-    const totalSilenceBytes = activeSequence.length * holdBytesSize;
-    
-    const totalDataSize = totalSpeechBytes + totalSilenceBytes;
-    const wavHeader = createWavHeader(totalDataSize, 12000);
-    
-    // 5. Set response headers for direct stream download with anti-buffering & no-cache
-    res.setHeader("Content-Type", "audio/wav");
-    res.setHeader("Content-Disposition", `attachment; filename="sequenza_yoga_personalizzata.wav"`);
-    res.setHeader("x-audio-total-bytes", (totalDataSize + 44).toString());
-    res.setHeader("Access-Control-Expose-Headers", "x-audio-total-bytes");
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
-    res.setHeader("Pragma", "no-cache");
-    res.setHeader("Expires", "0");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    
-    // Write WAV header immediately to start download
-    res.write(wavHeader);
-    
-    // 6. Pre-allocate 10-second silence buffer once to reuse
-    const silenceBuffer = Buffer.alloc(holdBytesSize);
-    
-    // 7. Stream each step sequential chunk by chunk
-    for (let i = 0; i < activeSequence.length; i++) {
-      const step = activeSequence[i];
-      const { mantenimento: targetMOrig, uscita: targetUOrig } = snapshottedOriginalLengths[step.id];
-      const { mantenimento: targetMDown, uscita: targetUDown } = snapshottedDownsampledLengths[step.id];
-      
-      // Load and stream Mantenimento
-      const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
-      let pcmM: Buffer;
-      try {
-        pcmM = fs.readFileSync(cachePathM);
-      } catch (_) {
-        pcmM = Buffer.alloc(targetMOrig);
-      }
-      
-      let finalPCMM = pcmM;
-      if (pcmM.length !== targetMOrig) {
-        if (pcmM.length > targetMOrig) {
-          finalPCMM = pcmM.subarray(0, targetMOrig);
-        } else {
-          finalPCMM = Buffer.concat([pcmM, Buffer.alloc(targetMOrig - pcmM.length)]);
-        }
-      }
-      
-      const downM = downsamplePCM2x(finalPCMM);
-      let finalDownM = downM;
-      if (downM.length !== targetMDown) {
-        if (downM.length > targetMDown) {
-          finalDownM = downM.subarray(0, targetMDown);
-        } else {
-          finalDownM = Buffer.concat([downM, Buffer.alloc(targetMDown - downM.length)]);
-        }
-      }
-      
-      res.write(finalDownM);
-      
-      // Write 10 seconds of silence between mantenimento and uscita
-      res.write(silenceBuffer);
-      
-      // Load and stream Uscita
-      const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
-      let pcmU: Buffer;
-      try {
-        pcmU = fs.readFileSync(cachePathU);
-      } catch (_) {
-        pcmU = Buffer.alloc(targetUOrig);
-      }
-      
-      let finalPCMU = pcmU;
-      if (pcmU.length !== targetUOrig) {
-        if (pcmU.length > targetUOrig) {
-          finalPCMU = pcmU.subarray(0, targetUOrig);
-        } else {
-          finalPCMU = Buffer.concat([pcmU, Buffer.alloc(targetUOrig - pcmU.length)]);
-        }
-      }
-      
-      const downU = downsamplePCM2x(finalPCMU);
-      let finalDownU = downU;
-      if (downU.length !== targetUDown) {
-        if (downU.length > targetUDown) {
-          finalDownU = downU.subarray(0, targetUDown);
-        } else {
-          finalDownU = Buffer.concat([downU, Buffer.alloc(targetUDown - downU.length)]);
-        }
-      }
-      
-      res.write(finalDownU);
-    }
-    
-    res.end();
-    console.log(`[TTS Download Custom] Custom audio stream of ${activeSequence.length} steps completed successfully.`);
+    streamCombinedAudio(activeSequence, res, "sequenza_yoga_personalizzata.wav");
   } catch (err: any) {
     console.error("[TTS Download Custom] Custom combined session audio generation failed:", err);
     if (!res.headersSent) {

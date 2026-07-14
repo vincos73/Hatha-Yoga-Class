@@ -376,20 +376,15 @@ export default function App() {
     }
   };
 
-  const downloadCombinedAudio = async () => {
+  // Shared download flow: run the request, stream the response tracking progress, then trigger the file save
+  const performAudioDownload = async (makeRequest: () => Promise<Response>, filename: string) => {
     if (downloadState !== "idle" && downloadState !== "completed" && downloadState !== "error") return;
-    
+
     setDownloadState("preparing");
     setDownloadProgress(0);
-    
-    try {
-      const headers: Record<string, string> = {};
-      const storedKey = localStorage.getItem("custom_gemini_api_key");
-      if (storedKey) {
-        headers["x-gemini-api-key"] = storedKey;
-      }
 
-      const response = await fetch(`/api/audio-download?duration=${duration}`, { headers });
+    try {
+      const response = await makeRequest();
       if (!response.ok) {
         let errMsg = "Errore durante la generazione dell'audio.";
         try {
@@ -407,27 +402,27 @@ export default function App() {
         } catch (_) {}
         throw new Error(errMsg);
       }
-      
+
       const contentLengthHeader = response.headers.get("x-audio-total-bytes") || response.headers.get("content-length");
       const totalBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
-      
+
       setDownloadState("downloading");
-      
+
       const reader = response.body?.getReader();
       if (!reader) {
         // Fallback if reader is not supported (unlikely in modern browsers)
         const blob = await response.blob();
-        triggerBlobDownload(blob);
+        triggerBlobDownload(blob, filename);
         return;
       }
-      
+
       const chunks: Uint8Array[] = [];
       let receivedBytes = 0;
-      
+
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        
+
         if (value) {
           chunks.push(value);
           receivedBytes += value.length;
@@ -437,12 +432,10 @@ export default function App() {
           }
         }
       }
-      
+
       // Combine all chunks into a single Blob
       const blob = new Blob(chunks, { type: "audio/wav" });
-      triggerBlobDownload(blob);
-      setDownloadState("completed");
-      setTimeout(() => setDownloadState("idle"), 5000);
+      triggerBlobDownload(blob, filename);
     } catch (err: any) {
       console.error("Errore durante il download dell'audio:", err);
       setDownloadError(err?.message || "Errore sconosciuto.");
@@ -452,6 +445,19 @@ export default function App() {
         setDownloadError(null);
       }, 5000);
     }
+  };
+
+  const downloadCombinedAudio = async () => {
+    const headers: Record<string, string> = {};
+    const storedKey = localStorage.getItem("custom_gemini_api_key");
+    if (storedKey) {
+      headers["x-gemini-api-key"] = storedKey;
+    }
+
+    await performAudioDownload(
+      () => fetch(`/api/audio-download?duration=${duration}`, { headers }),
+      `sequenza_yoga_hatha_${duration}min.wav`
+    );
   };
 
   const triggerBlobDownload = (blob: Blob, filename = `sequenza_yoga_hatha_${duration}min.wav`) => {
@@ -476,84 +482,23 @@ export default function App() {
 
   const downloadCustomAudio = async () => {
     if (customSequence.length === 0) return;
-    if (downloadState !== "idle" && downloadState !== "completed" && downloadState !== "error") return;
-    
-    setDownloadState("preparing");
-    setDownloadProgress(0);
-    
-    try {
-      const headers: Record<string, string> = {
-        "Content-Type": "application/json"
-      };
-      const storedKey = localStorage.getItem("custom_gemini_api_key");
-      if (storedKey) {
-        headers["x-gemini-api-key"] = storedKey;
-      }
-      
-      const response = await fetch("/api/audio-download-custom", {
+
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    };
+    const storedKey = localStorage.getItem("custom_gemini_api_key");
+    if (storedKey) {
+      headers["x-gemini-api-key"] = storedKey;
+    }
+
+    await performAudioDownload(
+      () => fetch("/api/audio-download-custom", {
         method: "POST",
         headers,
         body: JSON.stringify({ steps: customSequence.map(s => ({ id: s.id })) })
-      });
-      
-      if (!response.ok) {
-        let errMsg = "Errore durante la generazione dell'audio personalizzato.";
-        try {
-          const text = await response.text();
-          try {
-            const errData = JSON.parse(text);
-            if (errData && errData.error) {
-              errMsg = errData.error;
-            }
-          } catch (_) {
-            if (text && text.length < 150) {
-              errMsg = text;
-            }
-          }
-        } catch (_) {}
-        throw new Error(errMsg);
-      }
-      
-      const contentLengthHeader = response.headers.get("x-audio-total-bytes") || response.headers.get("content-length");
-      const totalBytes = contentLengthHeader ? parseInt(contentLengthHeader, 10) : 0;
-      
-      setDownloadState("downloading");
-      
-      const reader = response.body?.getReader();
-      if (!reader) {
-        const blob = await response.blob();
-        triggerBlobDownload(blob, "sequenza_yoga_personalizzata.wav");
-        return;
-      }
-      
-      const chunks: Uint8Array[] = [];
-      let receivedBytes = 0;
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        if (value) {
-          chunks.push(value);
-          receivedBytes += value.length;
-          if (totalBytes > 0) {
-            const progress = Math.round((receivedBytes / totalBytes) * 100);
-            setDownloadProgress(progress);
-          }
-        }
-      }
-      
-      const blob = new Blob(chunks, { type: "audio/wav" });
-      triggerBlobDownload(blob, "sequenza_yoga_personalizzata.wav");
-    } catch (err: any) {
-      console.error("Errore durante il download dell'audio personalizzato:", err);
-      setDownloadError(err?.message || "Errore sconosciuto.");
-      setDownloadState("error");
-      setTimeout(() => {
-        setDownloadState("idle");
-        setDownloadError(null);
-      }, 5000);
-    }
+      }),
+      "sequenza_yoga_personalizzata.wav"
+    );
   };
 
   // Master timer effect for practice hold duration & total session time
