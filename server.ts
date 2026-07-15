@@ -147,6 +147,13 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
       
       const pcmBuffer = Buffer.from(base64Audio, "base64");
       fs.writeFileSync(cachePath, pcmBuffer);
+
+      // Log real token usage so cost can be tracked from actual billing units instead of guessed
+      if (data.usageMetadata) {
+        const { promptTokenCount, candidatesTokenCount, totalTokenCount } = data.usageMetadata;
+        console.log(`[TTS Usage] ${key}: prompt=${promptTokenCount ?? "?"} output=${candidatesTokenCount ?? "?"} total=${totalTokenCount ?? "?"} tokens`);
+      }
+
       return pcmBuffer;
     } catch (error: any) {
       console.error(`[TTS Error for ${stepId}]:`, error);
