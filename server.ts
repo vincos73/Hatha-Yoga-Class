@@ -5,7 +5,7 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { YOGA_SEQUENCE, getSequenceForDuration, type YogaStep } from "./src/data/yogaSequence.js";
 
-dotenv.config();
+dotenv.config({ path: [".env.local", ".env"] });
 
 const app = express();
 app.use(express.json());

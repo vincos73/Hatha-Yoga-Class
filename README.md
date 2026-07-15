@@ -36,6 +36,14 @@ Prerequisiti: Node.js
 
 Gli utenti possono collegare una chiave API Gemini personale dall'interfaccia (pulsante "Sblocca Limite") per superare i limiti di quota della chiave condivisa. La chiave viene salvata solo nel localStorage del browser e inviata al server tramite header, senza essere memorizzata lato server.
 
+## Audio pre-generati
+
+I file vocali delle pose vivono in `audio-cache/` e sono versionati nel repository: al deploy l'app li trova già pronti e non effettua alcuna chiamata TTS.
+
+Per generarli o rigenerarli in locale: configura `GEMINI_API_KEY` in `.env.local`, esegui `npm run generate-audio` (genera solo i file mancanti), poi committa la cartella `audio-cache/`.
+
+Attenzione: la cache è indicizzata per id della posa, non per contenuto del testo. Se si modifica lo `speechScript` di una posa occorre eliminare i relativi file `.pcm` e rigenerarli, altrimenti l'app continuerà a servire l'audio precedente senza segnalare nulla.
+
 ## Avvertenza medica
 
 Questa applicazione ha scopo puramente informativo e non sostituisce il parere di un medico o di un insegnante qualificato. Consulta un medico prima di iniziare qualsiasi programma di esercizio fisico, soprattutto in caso di infortuni, gravidanza o condizioni preesistenti. Interrompi immediatamente la pratica se avverti dolore.
