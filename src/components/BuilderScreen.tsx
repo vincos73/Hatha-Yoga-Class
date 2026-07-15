@@ -38,6 +38,7 @@ interface BuilderScreenProps {
   getCounterpartStepId: (stepId: string) => string | null;
   downloadState: "idle" | "preparing" | "downloading" | "completed" | "error";
   downloadProgress: number;
+  downloadError: string | null;
   downloadCustomAudio: () => Promise<void>;
   onBack: () => void;
   onStartCustomPractice: () => void;
@@ -66,6 +67,7 @@ export function BuilderScreen({
   getCounterpartStepId,
   downloadState,
   downloadProgress,
+  downloadError,
   downloadCustomAudio,
   onBack,
   onStartCustomPractice,
@@ -474,6 +476,13 @@ export function BuilderScreen({
                   className="bg-[#7ba691] h-full rounded-full transition-all duration-300 shadow-sm"
                   style={{ width: `${downloadProgress}%` }}
                 />
+              </div>
+            )}
+
+            {downloadState === "error" && (
+              <div className="flex items-start gap-2 p-2 bg-rose-50/50 border border-rose-200/50 rounded-xl text-[10px] text-rose-900/90 leading-relaxed font-semibold">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                <span>{downloadError || "Errore durante il download. Riprova."}</span>
               </div>
             )}
           </div>

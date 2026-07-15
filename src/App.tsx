@@ -745,6 +745,7 @@ export default function App() {
               onOpenBuilder={() => setScreen("builder")}
               downloadState={downloadState}
               downloadProgress={downloadProgress}
+              downloadError={downloadError}
               onDownloadAudio={downloadCombinedAudio}
             />
           )}
@@ -769,6 +770,7 @@ export default function App() {
               getCounterpartStepId={getCounterpartStepId}
               downloadState={downloadState}
               downloadProgress={downloadProgress}
+              downloadError={downloadError}
               downloadCustomAudio={downloadCustomAudio}
               onBack={() => setScreen("welcome")}
               onStartCustomPractice={handleStartCustomPractice}

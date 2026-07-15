@@ -9,6 +9,7 @@ import {
   Flower2,
   Download,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { YOGA_SEQUENCE, YogaStep } from "../data/yogaSequence";
 import { getCategoryTheme } from "../theme";
@@ -34,6 +35,7 @@ interface WelcomeScreenProps {
   onOpenBuilder: () => void;
   downloadState: "idle" | "preparing" | "downloading" | "completed" | "error";
   downloadProgress: number;
+  downloadError: string | null;
   onDownloadAudio: () => void;
 }
 
@@ -51,6 +53,7 @@ export function WelcomeScreen({
   onOpenBuilder,
   downloadState,
   downloadProgress,
+  downloadError,
   onDownloadAudio,
 }: WelcomeScreenProps) {
   return (
@@ -177,6 +180,13 @@ export function WelcomeScreen({
                   className="bg-[#7ba691] h-full rounded-full transition-all duration-300 shadow-sm"
                   style={{ width: `${downloadProgress}%` }}
                 />
+              </div>
+            )}
+
+            {downloadState === "error" && (
+              <div className="flex items-start gap-2 p-2 bg-rose-50/50 border border-rose-200/50 rounded-xl text-[10px] text-rose-900/90 leading-relaxed font-semibold">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0 mt-0.5" />
+                <span>{downloadError || "Errore durante il download. Riprova."}</span>
               </div>
             )}
           </>
