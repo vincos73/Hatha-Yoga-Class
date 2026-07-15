@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { YOGA_SEQUENCE, YogaStep, getSequenceForDuration } from "./data/yogaSequence";
 import { playSingingBowlChime } from "./utils";
+import { BUILD_NUMBER } from "./buildNumber";
 import { getCategoryTheme } from "./theme";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeScreen } from "./components/WelcomeScreen";
@@ -828,7 +829,7 @@ export default function App() {
       <footer className="relative z-10 border-t border-white/20 bg-white/5 backdrop-blur-md py-6 text-center text-xs text-[#2d3e35]/65">
         <p className="text-[10px] text-[#2d3e35]/50 max-w-3xl mx-auto px-4 leading-relaxed">Questa applicazione ha scopo puramente informativo e non sostituisce il parere di un medico o di un insegnante qualificato. Consulta un medico prima di iniziare qualsiasi programma di esercizio fisico, soprattutto in caso di infortuni, gravidanza o condizioni preesistenti. Interrompi immediatamente la pratica se avverti dolore.</p>
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-3">
-          <p>© 2026 Hata Yoga by Luemy. Tutti i diritti riservati. <span className="opacity-60">· Build #{__BUILD_NUMBER__}</span></p>
+          <p>© 2026 Hata Yoga by Luemy. Tutti i diritti riservati. <span className="opacity-60">· Build #{BUILD_NUMBER}</span></p>
           <div className="flex gap-4 font-medium">
             <span className="hover:text-[#2d3e35] transition-colors cursor-pointer">Respirazione Consapevole</span>
             <span>•</span>
