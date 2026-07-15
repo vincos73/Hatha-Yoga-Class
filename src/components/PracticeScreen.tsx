@@ -9,7 +9,6 @@ import {
   Info,
   Volume2,
   VolumeX,
-  Wind,
   Flower2,
   Laptop,
   Bell,
@@ -43,10 +42,6 @@ interface PracticeScreenProps {
   setVoiceEngine: SetState<"ai" | "system">;
   hasQuotaError: boolean;
   setHasQuotaError: SetState<boolean>;
-  breath: {
-    phase: "inspira" | "espira" | "trattieni_pieno" | "trattieni_vuoto";
-    count: number;
-  };
   theme: CategoryTheme;
 }
 
@@ -70,7 +65,6 @@ export function PracticeScreen({
   setVoiceEngine,
   hasQuotaError,
   setHasQuotaError,
-  breath,
   theme,
 }: PracticeScreenProps) {
   return (
@@ -112,45 +106,6 @@ export function PracticeScreen({
           </div>
         </div>
 
-        {/* Interactive Breathing Coach & Mindfulness Orb */}
-        <div className="bg-white/40 backdrop-blur-md p-6 rounded-3xl border border-white/50 shadow-xl flex flex-col items-center justify-center space-y-4">
-          <div className="flex items-center gap-1.5">
-            <Wind className="w-4 h-4 text-[#7ba691] animate-pulse" />
-            <h4 className="text-xs font-bold uppercase tracking-wider text-[#2d3e35]/60 font-mono">Coach del Respiro</h4>
-          </div>
-
-          {/* Pulsing Breathing Orb */}
-          <div className="relative flex items-center justify-center w-36 h-36">
-            {/* Pulsing visual rings */}
-            <div className="absolute w-full h-full rounded-full bg-[#7ba691]/15 animate-pulse-ring"></div>
-            <div className="absolute w-4/5 h-4/5 rounded-full bg-[#7ba691]/25 animate-pulse-ring" style={{ animationDelay: '1.5s' }}></div>
-
-            {/* Center Core Orb */}
-            <div className={`w-28 h-28 rounded-full bg-gradient-to-br ${theme.orbColor} text-white flex flex-col items-center justify-center shadow-lg transition-transform duration-1000 ${
-              breath.phase === "inspira" ? "scale-110" : "scale-90"
-            }`}>
-              <span className="text-[11px] font-bold tracking-widest uppercase font-mono">
-                {breath.phase === "inspira" && "Inspira"}
-                {breath.phase === "espira" && "Espira"}
-                {breath.phase === "trattieni_pieno" && "Trattieni"}
-                {breath.phase === "trattieni_vuoto" && "Trattieni"}
-              </span>
-              <span className="text-3xl font-extrabold font-mono mt-0.5">
-                {breath.count}
-              </span>
-              <span className="text-[9px] opacity-85 mt-0.5"> secondi </span>
-            </div>
-          </div>
-
-          <div className="text-center">
-            <p className="text-xs font-medium text-[#2d3e35]/80 italic px-4">
-              {breath.phase === "inspira" && "Lascia che l'addome si espanda spontaneamente."}
-              {breath.phase === "espira" && "Rilascia le spalle e sgonfia delicatamente la pancia."}
-              {breath.phase === "trattieni_pieno" && "Mantieni la calma a polmoni pieni."}
-              {breath.phase === "trattieni_vuoto" && "Assapora la quiete del vuoto interiore."}
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Right Column: Step Instructions & Controls */}
@@ -218,7 +173,7 @@ export function PracticeScreen({
               </div>
 
               <div className="space-y-1.5">
-                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-[#7ba691]">2. Mantenimento Guidato (40 secondi)</span>
+                <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-[#7ba691]">2. Mantenimento Guidato (15 secondi)</span>
                 <div className="p-4 rounded-2xl border border-white/50 shadow-sm bg-white/45 border-l-4 border-l-[#7ba691]">
                   <p className="text-xs font-semibold text-[#1a2b23] leading-relaxed italic">{currentStep.description.mantenimento}</p>
                   <div className="flex gap-2 items-start text-[10px] text-[#2d3e35]/65 mt-3">

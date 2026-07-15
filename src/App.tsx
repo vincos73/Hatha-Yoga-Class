@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
-  RefreshCw,
   Flower2,
   Key,
   ArrowLeft,
@@ -9,7 +8,6 @@ import {
 import { YOGA_SEQUENCE, YogaStep, getSequenceForDuration } from "./data/yogaSequence";
 import { playSingingBowlChime } from "./utils";
 import { getCategoryTheme } from "./theme";
-import { useBreathingCoach } from "./hooks/useBreathingCoach";
 import { SettingsPanel } from "./components/SettingsPanel";
 import { WelcomeScreen } from "./components/WelcomeScreen";
 import { BuilderScreen } from "./components/BuilderScreen";
@@ -192,16 +190,8 @@ export default function App() {
 
   const activeSequence = isPlayingCustom ? customSequence : getSequenceForDuration(duration, YOGA_SEQUENCE);
 
-  // Estimate total speech duration in seconds
-  const totalSpeechSec = activeSequence.reduce((acc, step) => {
-    const wordCount = step.speechScript.split(/\s+/).filter(Boolean).length;
-    return acc + Math.max(4, wordCount / 2.2);
-  }, 0);
-  const totalDurationSec = duration * 60;
-  const numPauses = Math.max(1, activeSequence.length - 1);
-  const calculatedHoldTime = Math.max(5, Math.round((totalDurationSec - totalSpeechSec) / numPauses));
-  // Custom Builder sequences always hold 10s (as advertised in the builder UI); quick sessions use the calculated pacing
-  const holdTimeSec = isPlayingCustom ? 10 : calculatedHoldTime;
+  // Custom Builder sequences always hold 10s (as advertised in the builder UI); quick sessions use a fixed 15s hold
+  const holdTimeSec = isPlayingCustom ? 10 : 15;
 
   const currentStep = activeSequence[currentStepIndex] || activeSequence[0] || YOGA_SEQUENCE[0];
 
@@ -235,7 +225,7 @@ export default function App() {
   const customHasBreathing = customSequence.some(s => s.category === "respirazione");
   const customLongSequenceTip = customSequence.length > 6 && !customHasBreathing;
 
-  // Check cache status when duration changes (warmup stays manual, see startCacheWarmup)
+  // Check cache status when duration changes
   useEffect(() => {
     fetchCacheStatus();
   }, [duration]);
@@ -263,47 +253,6 @@ export default function App() {
       }
     } catch (err) {
       console.log("Error checking cache:", err);
-    }
-  };
-
-  const startCacheWarmup = async () => {
-    setCacheStatus(prev => ({ ...prev, isWarming: true }));
-    try {
-      const headers: Record<string, string> = {};
-      const storedKey = localStorage.getItem("custom_gemini_api_key");
-      if (storedKey) {
-        headers["x-gemini-api-key"] = storedKey;
-      }
-
-      await fetch(`/api/cache-warmup?duration=${duration}`, { method: "POST", headers });
-
-      // Poll cache status every 2 seconds to show real progress
-      const interval = setInterval(async () => {
-        const res = await fetch(`/api/cache-status?duration=${duration}`);
-        if (res.ok) {
-          const data = await res.json();
-          setCacheStatus(prev => ({
-            ...prev,
-            cachedCount: data.cachedCount
-          }));
-
-          const hasCustomKey = !!localStorage.getItem("custom_gemini_api_key");
-          if (data.quotaExceeded && !hasCustomKey) {
-            setHasQuotaError(true);
-            setVoiceEngine("system");
-          } else {
-            setHasQuotaError(false);
-          }
-
-          if (data.cachedCount === data.totalCount) {
-            clearInterval(interval);
-            setCacheStatus(prev => ({ ...prev, isWarming: false }));
-          }
-        }
-      }, 2000);
-    } catch (err) {
-      console.log("Warmup trigger error:", err);
-      setCacheStatus(prev => ({ ...prev, isWarming: false }));
     }
   };
 
@@ -660,9 +609,6 @@ export default function App() {
     }
   };
 
-  // Breathing Coach: 4-second cycles (inspira / espira) or 4x4 Square for Pranayama
-  const breath = useBreathingCoach(isPlaying, currentStep.category === "respirazione", currentStepIndex);
-
   // Navigate back to welcome screen
   const exitPractice = () => {
     if (audioRef.current) {
@@ -683,15 +629,7 @@ export default function App() {
     setPracticePhase("narration");
     setTotalSecondsRemaining(duration * 60);
 
-    // Recompute the hold time inline: holdTimeSec from the current render
-    // may still reflect a stale isPlayingCustom value at click time
-    const seq = getSequenceForDuration(duration, YOGA_SEQUENCE);
-    const speechSec = seq.reduce((acc, s) => {
-      const w = s.speechScript.split(/\s+/).filter(Boolean).length;
-      return acc + Math.max(4, w / 2.2);
-    }, 0);
-    const hold = Math.max(5, Math.round((duration * 60 - speechSec) / Math.max(1, seq.length - 1)));
-    setCurrentHoldRemaining(hold);
+    setCurrentHoldRemaining(15);
   };
 
   // Big CTA: start the custom (builder) practice session
@@ -747,18 +685,6 @@ export default function App() {
               <span className="w-1.5 h-1.5 rounded-full bg-[#7ba691] animate-pulse"></span>
               {cacheStatus.cachedCount === cacheStatus.totalCount ? "Audio Pronti" : `Audio Pronti: ${cacheStatus.cachedCount}/${cacheStatus.totalCount}`}
             </span>
-
-            {cacheStatus.cachedCount < cacheStatus.totalCount && (
-              <button
-                onClick={startCacheWarmup}
-                disabled={cacheStatus.isWarming}
-                className="inline-flex items-center gap-1.5 text-xs bg-white/40 hover:bg-white/60 text-[#2d3e35] font-semibold py-2 px-4 rounded-full transition-all border border-white/30 backdrop-blur-xl shadow-sm disabled:opacity-50 animate-pulse-subtle"
-                id="warmup_cache_btn"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${cacheStatus.isWarming ? "animate-spin" : ""}`} />
-                {cacheStatus.isWarming ? "Caricamento..." : "Scarica Guida"}
-              </button>
-            )}
 
             <button
               onClick={() => setShowSettings(prev => !prev)}
@@ -876,7 +802,6 @@ export default function App() {
               setVoiceEngine={setVoiceEngine}
               hasQuotaError={hasQuotaError}
               setHasQuotaError={setHasQuotaError}
-              breath={breath}
               theme={theme}
             />
           )}
@@ -901,7 +826,7 @@ export default function App() {
       <footer className="relative z-10 border-t border-white/20 bg-white/5 backdrop-blur-md py-6 text-center text-xs text-[#2d3e35]/65">
         <p className="text-[10px] text-[#2d3e35]/50 max-w-3xl mx-auto px-4 leading-relaxed">Questa applicazione ha scopo puramente informativo e non sostituisce il parere di un medico o di un insegnante qualificato. Consulta un medico prima di iniziare qualsiasi programma di esercizio fisico, soprattutto in caso di infortuni, gravidanza o condizioni preesistenti. Interrompi immediatamente la pratica se avverti dolore.</p>
         <div className="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-3">
-          <p>© 2026 Hata Yoga by Luemy. Tutti i diritti riservati.</p>
+          <p>© 2026 Hata Yoga by Luemy. Tutti i diritti riservati. <span className="opacity-60">· Build #{__BUILD_NUMBER__}</span></p>
           <div className="flex gap-4 font-medium">
             <span className="hover:text-[#2d3e35] transition-colors cursor-pointer">Respirazione Consapevole</span>
             <span>•</span>
