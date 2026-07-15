@@ -817,6 +817,9 @@ export default function App() {
               cacheStatus={cacheStatus}
               onStartQuickPractice={handleStartQuickPractice}
               onOpenBuilder={() => setScreen("builder")}
+              downloadState={downloadState}
+              downloadProgress={downloadProgress}
+              onDownloadAudio={downloadCombinedAudio}
             />
           )}
 

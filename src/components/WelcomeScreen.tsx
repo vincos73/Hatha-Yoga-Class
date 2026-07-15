@@ -7,6 +7,8 @@ import {
   ChevronRight,
   CheckCircle2,
   Flower2,
+  Download,
+  Loader2,
 } from "lucide-react";
 import { YOGA_SEQUENCE, YogaStep } from "../data/yogaSequence";
 import { getCategoryTheme } from "../theme";
@@ -30,6 +32,9 @@ interface WelcomeScreenProps {
   };
   onStartQuickPractice: () => void;
   onOpenBuilder: () => void;
+  downloadState: "idle" | "preparing" | "downloading" | "completed" | "error";
+  downloadProgress: number;
+  onDownloadAudio: () => void;
 }
 
 export function WelcomeScreen({
@@ -44,6 +49,9 @@ export function WelcomeScreen({
   cacheStatus,
   onStartQuickPractice,
   onOpenBuilder,
+  downloadState,
+  downloadProgress,
+  onDownloadAudio,
 }: WelcomeScreenProps) {
   return (
     <motion.div
@@ -148,7 +156,29 @@ export function WelcomeScreen({
                 <Play className="w-5 h-5 fill-white" />
                 Inizia la Pratica Online
               </button>
+
+              <button
+                onClick={onDownloadAudio}
+                disabled={downloadState !== "idle" && downloadState !== "completed" && downloadState !== "error"}
+                className="flex-1 bg-white/40 border border-[#7ba691] hover:bg-white/60 text-[#2d3e35] font-bold py-3 px-4 rounded-xl transition-all shadow-sm disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-1.5 text-xs uppercase tracking-wider"
+              >
+                {downloadState === "downloading" ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-[#7ba691]" />
+                ) : (
+                  <Download className="w-4 h-4 text-[#7ba691]" />
+                )}
+                {downloadState === "downloading" ? `Esportazione: ${downloadProgress}%` : "Scarica Audio Sequenza"}
+              </button>
             </div>
+
+            {downloadState === "downloading" && (
+              <div className="w-full bg-white/40 h-1.5 rounded-full overflow-hidden border border-white/50 shadow-inner">
+                <div
+                  className="bg-[#7ba691] h-full rounded-full transition-all duration-300 shadow-sm"
+                  style={{ width: `${downloadProgress}%` }}
+                />
+              </div>
+            )}
           </>
         ) : (
           <div className="bg-white/40 backdrop-blur-md p-6 rounded-2xl border border-white/60 shadow-xl space-y-4">
