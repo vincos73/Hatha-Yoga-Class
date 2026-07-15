@@ -186,6 +186,9 @@ export default function App() {
   isChimeEnabledRef.current = isChimeEnabled;
   autoPlayNextRef.current = autoPlayNext;
   const italianVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
+  // Tracks consecutive AI voice failures (fetch/playback) across steps; reset on success.
+  // Only a confirmed quota error or repeated consecutive failures should downgrade the whole session.
+  const consecutiveAiFailuresRef = useRef(0);
 
   const activeSequence = isPlayingCustom ? customSequence : getSequenceForDuration(duration, YOGA_SEQUENCE);
 
@@ -566,6 +569,29 @@ export default function App() {
       let objectUrl: string | null = null;
       let cancelled = false;
 
+      // Shared handler for any AI voice failure (fetch error or HTML audio playback error).
+      // A confirmed quota error, or two consecutive failures, downgrades the whole session
+      // to the system voice. A single isolated glitch just skips this step's AI narration
+      // and advances the phase normally (no chime) so the practice doesn't get stuck.
+      const handleAiFailure = (err: unknown, isQuota: boolean) => {
+        console.warn("AI Voice failed for this step.", err);
+        consecutiveAiFailuresRef.current += 1;
+        if (isQuota || consecutiveAiFailuresRef.current >= 2) {
+          // Confirmed quota exhaustion, or repeated failures: fall back to system voice for the rest of the session
+          setHasQuotaError(true);
+          setVoiceEngine("system");
+        } else {
+          // Isolated glitch: don't downgrade the whole session, just skip this step's AI narration.
+          // Advance the phase as audio.onended would, but without the chime (no audio actually played).
+          if (practicePhase === "narration") {
+            setPracticePhase("hold");
+            setCurrentHoldRemaining(holdTimeSec);
+          } else if (practicePhase === "uscita") {
+            handleUscitaEnd();
+          }
+        }
+      };
+
       if (isPlaying && (practicePhase === "narration" || practicePhase === "uscita")) {
         const storedKey = localStorage.getItem("custom_gemini_api_key");
         const headers: Record<string, string> = {};
@@ -583,6 +609,7 @@ export default function App() {
             audio.muted = isMutedRef.current;
 
             audio.onended = () => {
+              consecutiveAiFailuresRef.current = 0;
               if (practicePhase === "narration") {
                 setPracticePhase("hold");
                 setCurrentHoldRemaining(holdTimeSec);
@@ -595,17 +622,15 @@ export default function App() {
             };
 
             audio.onerror = (e) => {
-              console.warn("AI Voice failed or quota exceeded. Automatically falling back to browser system voice.", e);
-              setHasQuotaError(true);
-              setVoiceEngine("system");
+              // HTML audio playback failure (not a fetch/HTTP error) is never a quota issue.
+              handleAiFailure(e, false);
             };
 
             return audio.play();
           })
           .catch(err => {
-            console.warn("Playback prevented or error:", err);
-            setHasQuotaError(true);
-            setVoiceEngine("system");
+            // The client sees a 429 HTTP status when the server responds with a quota error.
+            handleAiFailure(err, !!err?.message?.includes("429"));
           });
       }
 

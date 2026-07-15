@@ -100,8 +100,12 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
   
   console.log(`[TTS] Requesting voice for ${key}${customApiKey ? " using custom API key" : " using default server key"}...`);
   let attempt = 0;
-  const maxAttempts = 2;
+  let maxAttempts = 2;
   let delay = 1000;
+  // Separate from the non-quota retry counter above: tracks whether we've already
+  // retried once after a quota-looking error on a custom (paid) API key, since a
+  // 429 there is almost always a transient rate limit, not real quota exhaustion.
+  let quotaRetried = false;
 
   while (attempt < maxAttempts) {
     try {
@@ -151,6 +155,15 @@ async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow 
       
       if (isQuota) {
         if (customApiKey) {
+          if (!quotaRetried) {
+            quotaRetried = true;
+            // Ensure the while loop keeps going for this extra attempt even if the
+            // normal (non-quota) retry budget has already been exhausted.
+            maxAttempts++;
+            console.log(`[TTS] Transient rate limit for custom key on step ${stepId}, retrying once in 5s...`);
+            await new Promise(r => setTimeout(r, 5000));
+            continue;
+          }
           throw new Error("CustomApiKeyQuotaExceeded");
         }
 
