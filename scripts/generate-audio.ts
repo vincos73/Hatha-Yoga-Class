@@ -113,7 +113,7 @@ async function main() {
     for (const target of targets) {
       const filePath = path.join(CACHE_DIR, target.file);
 
-      if (fs.existsSync(filePath)) {
+      if (fs.existsSync(filePath) || fs.existsSync(`${filePath}.b64`)) {
         console.log(`[skip] ${target.file} (già presente)`);
         skipped++;
         continue;
@@ -133,7 +133,8 @@ async function main() {
           }
         }
 
-        fs.writeFileSync(filePath, result.pcmBuffer);
+        const b64 = result.pcmBuffer.toString("base64").replace(/(.{76})/g, "$1\n");
+        fs.writeFileSync(`${filePath}.b64`, b64);
         const kb = (result.pcmBuffer.length / 1024).toFixed(1);
         const tokenInfo = result.candidatesTokenCount !== undefined ? `, ${result.candidatesTokenCount} token output` : "";
         console.log(`[ok] ${target.file} (${kb} KB${tokenInfo})`);

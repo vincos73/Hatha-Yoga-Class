@@ -16,6 +16,26 @@ if (!fs.existsSync(CACHE_DIR)) {
   fs.mkdirSync(CACHE_DIR, { recursive: true });
 }
 
+// A cached voice may exist as a raw .pcm (generated at runtime) or as a
+// committed .pcm.b64 text file — base64 survives AI Studio's text-based
+// repo sync, raw binary gets mangled into U+FFFD sequences. Decode lazily
+// and materialize the .pcm so subsequent reads are direct.
+function cachedPCMPath(key: string): string | null {
+  const pcmPath = path.join(CACHE_DIR, `${key}.pcm`);
+  if (fs.existsSync(pcmPath)) return pcmPath;
+  const b64Path = `${pcmPath}.b64`;
+  if (fs.existsSync(b64Path)) {
+    const pcm = Buffer.from(fs.readFileSync(b64Path, "utf8").replace(/\s+/g, ""), "base64");
+    fs.writeFileSync(pcmPath, pcm);
+    return pcmPath;
+  }
+  return null;
+}
+
+function hasCachedPCM(key: string): boolean {
+  return cachedPCMPath(key) !== null;
+}
+
 // Helper to write standard 44-byte WAV header for 24000Hz 16-bit Mono PCM
 function createWavHeader(pcmLength: number, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): Buffer {
   const header = Buffer.alloc(44);
@@ -76,9 +96,9 @@ const warmupLastRequestByIp = new Map<string, number>();
 async function getStepAudioPCM(stepId: string, speechScript: string, allowThrow = false, customApiKey?: string, cacheKey?: string): Promise<Buffer> {
   const key = cacheKey || stepId;
   const cachePath = path.join(CACHE_DIR, `${key}.pcm`);
-  
-  if (fs.existsSync(cachePath)) {
-    return fs.readFileSync(cachePath);
+  const existingPath = cachedPCMPath(key);
+  if (existingPath) {
+    return fs.readFileSync(existingPath);
   }
   
   const apiKeyToUse = customApiKey || process.env.GEMINI_API_KEY;
@@ -214,8 +234,8 @@ function collectMissingSteps(steps: YogaStep[]): YogaStep[] {
   const missing: YogaStep[] = [];
   for (const step of steps) {
     const parts = step.speechScript.split(" | ");
-    if (parts[0]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`))) missing.push(step);
-    else if (parts[1]?.trim() && !fs.existsSync(path.join(CACHE_DIR, `${step.id}_uscita.pcm`))) missing.push(step);
+    if (parts[0]?.trim() && !hasCachedPCM(`${step.id}_mantenimento`)) missing.push(step);
+    else if (parts[1]?.trim() && !hasCachedPCM(`${step.id}_uscita`)) missing.push(step);
   }
   return missing;
 }
@@ -263,7 +283,7 @@ async function warmStepsInBackground(steps: YogaStep[], customApiKey?: string): 
         console.log(`[TTS Cache] Soft bypass for ${step.id}:`, err);
       }
     }
-    console.log("[TTS Cache] Warmup process settled. Total cached files:", fs.readdirSync(CACHE_DIR).length);
+    console.log("[TTS Cache] Warmup process settled. Total cached files:", new Set(fs.readdirSync(CACHE_DIR).map(f => f.replace(/\.pcm(\.b64)?$/, ""))).size);
   } finally {
     if (!customApiKey) {
       warmupRunning = false;
@@ -273,7 +293,7 @@ async function warmStepsInBackground(steps: YogaStep[], customApiKey?: string): 
 
 // API: Health Check
 app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", cachedStepsCount: fs.readdirSync(CACHE_DIR).length });
+  res.json({ status: "ok", cachedStepsCount: new Set(fs.readdirSync(CACHE_DIR).map(f => f.replace(/\.pcm(\.b64)?$/, ""))).size });
 });
 
 // API: Get sequence steps list
@@ -287,10 +307,9 @@ app.get("/api/sequence", (req, res) => {
 app.get("/api/cache-status", (req, res) => {
   const durationMin = parseInt(req.query.duration as string) || 15;
   const activeSequence = getSequenceForDuration(durationMin, YOGA_SEQUENCE);
-  const files = fs.readdirSync(CACHE_DIR);
   const status: Record<string, boolean> = {};
   activeSequence.forEach(step => {
-    status[step.id] = files.includes(`${step.id}_mantenimento.pcm`);
+    status[step.id] = hasCachedPCM(`${step.id}_mantenimento`);
   });
   res.json({
     cachedCount: Object.values(status).filter(Boolean).length,
@@ -443,18 +462,18 @@ function streamCombinedAudio(activeSequence: YogaStep[], res: express.Response, 
   // 2. Snapshot the exact sizes of all cached files for both phases
   const snapshottedOriginalLengths: Record<string, { mantenimento: number; uscita: number }> = {};
   for (const step of activeSequence) {
-    const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
-    const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+    const cachePathM = cachedPCMPath(`${step.id}_mantenimento`);
+    const cachePathU = cachedPCMPath(`${step.id}_uscita`);
 
     let lenM = 240000;
-    if (fs.existsSync(cachePathM)) {
+    if (cachePathM) {
       try { lenM = fs.statSync(cachePathM).size; } catch (_) {}
     }
 
     let lenU = 4800; // tiny silent fallback if no exit script
     const parts = step.speechScript.split(" | ");
     if (parts[1] && parts[1].trim()) {
-      if (fs.existsSync(cachePathU)) {
+      if (cachePathU) {
         try { lenU = fs.statSync(cachePathU).size; } catch (_) {}
       } else {
         lenU = 240000;
@@ -516,10 +535,10 @@ function streamCombinedAudio(activeSequence: YogaStep[], res: express.Response, 
     const { mantenimento: targetMDown, uscita: targetUDown } = snapshottedDownsampledLengths[step.id];
 
     // Load and stream Mantenimento
-    const cachePathM = path.join(CACHE_DIR, `${step.id}_mantenimento.pcm`);
+    const cachePathM = cachedPCMPath(`${step.id}_mantenimento`);
     let pcmM: Buffer;
     try {
-      pcmM = fs.readFileSync(cachePathM);
+      pcmM = cachePathM ? fs.readFileSync(cachePathM) : Buffer.alloc(targetMOrig);
     } catch (_) {
       pcmM = Buffer.alloc(targetMOrig);
     }
@@ -549,10 +568,10 @@ function streamCombinedAudio(activeSequence: YogaStep[], res: express.Response, 
     res.write(silenceBuffer);
 
     // Load and stream Uscita
-    const cachePathU = path.join(CACHE_DIR, `${step.id}_uscita.pcm`);
+    const cachePathU = cachedPCMPath(`${step.id}_uscita`);
     let pcmU: Buffer;
     try {
-      pcmU = fs.readFileSync(cachePathU);
+      pcmU = cachePathU ? fs.readFileSync(cachePathU) : Buffer.alloc(targetUOrig);
     } catch (_) {
       pcmU = Buffer.alloc(targetUOrig);
     }

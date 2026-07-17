@@ -40,7 +40,9 @@ Gli utenti possono collegare una chiave API Gemini personale dall'interfaccia (p
 
 I file vocali delle pose vivono in `audio-cache/` e sono versionati nel repository: al deploy l'app li trova già pronti e non effettua alcuna chiamata TTS.
 
-Per generarli o rigenerarli in locale: configura `GEMINI_API_KEY` in `.env.local`, esegui `npm run generate-audio` (genera solo i file mancanti), poi committa la cartella `audio-cache/`.
+Nel repo i file sono testo base64 (`<id>.pcm.b64`), non PCM binario: la pipeline di deploy di AI Studio ricodifica i file come testo UTF-8 e corromperebbe un binario. Il server decodifica pigramente il `.b64` e materializza il `.pcm` su disco al primo utilizzo, poi serve direttamente quello.
+
+Per generarli o rigenerarli in locale: configura `GEMINI_API_KEY` in `.env.local`, esegui `npm run generate-audio` (genera solo i file `.pcm.b64` mancanti, direttamente in formato base64), poi committa la cartella `audio-cache/`.
 
 Attenzione: la cache è indicizzata per id della posa, non per contenuto del testo. Se si modifica lo `speechScript` di una posa occorre eliminare i relativi file `.pcm` e rigenerarli, altrimenti l'app continuerà a servire l'audio precedente senza segnalare nulla.
 
