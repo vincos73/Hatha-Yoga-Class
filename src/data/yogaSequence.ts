@@ -104,6 +104,34 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     speechScript: "Rimani seduto a gambe incrociate. Lascia scendere le braccia rilassate lungo i fianchi o appoggia i palmi sulle cosce. Iniziamo a sciogliere il collo e le spalle. Inspirando, solleva le spalle verso le orecchie, espirando ruotale all'indietro e lasciale scendere. Ora inclina la testa portando l'orecchio sinistro alla spalla sinistra, ed espirando lascia scivolare il mento al petto. Inspirando, porta l'orecchio destro alla spalla destra. Inspira profondamente... senti il collo che si allunga... espira... rilassa le spalle verso il basso... rilascia ogni tensione accumulata... rimani qui, respira... Inspira... espira... senti lo spazio che si crea nella zona cervicale... ancora un respiro profondo... | Riporta delicatamente la testa in asse al centro e rilassa le spalle verso il basso."
   },
   {
+    id: "riscaldamento_mezzaluna",
+    title: "Riscaldamento in Piedi 1",
+    asanaName: "Allungamento Laterale in Piedi (Mezzaluna)",
+    category: "riscaldamento",
+    categoryLabel: "Riscaldamento",
+    side: "entrambi",
+    description: {
+      entrata: "Alzati in piedi con i piedi uniti o larghi quanto le anche, il peso ben distribuito. Inspirando allunga le braccia sopra la testa e unisci i palmi, oppure intreccia le dita con gli indici distesi verso l'alto.",
+      mantenimento: "Mantenimento guidato (15 secondi): Espirando inclina il busto verso destra mantenendo entrambi i fianchi lunghi, poi inspira per tornare al centro ed espira inclinandoti a sinistra. Inspira profondamente... allungati verso l'alto... espira... inclinati mantenendo i piedi ben radicati... senti il fianco che si apre e respira nello spazio creato.",
+      uscita: "Inspirando torna al centro con le braccia verso l'alto, poi espirando lascia scendere lentamente le braccia lungo i fianchi."
+    },
+    speechScript: "Alzati in piedi con i piedi uniti o larghi quanto le anche, e il peso distribuito in modo uniforme sulle piante. Inspirando, allunga le braccia sopra la testa e unisci i palmi, oppure intreccia le dita lasciando gli indici distesi verso l'alto. Senti tutto il corpo che si allunga dalla terra al cielo. Espirando, inclina lentamente il busto verso destra, mantenendo entrambi i fianchi lunghi e i piedi ben radicati. Inspira profondamente... torna al centro allungandoti ancora verso l'alto... espira... inclinati ora verso sinistra, come una mezzaluna... senti il fianco destro che si apre... Inspira profondamente... risali al centro... espira... ripeti dolcemente verso destra, respirando nello spazio che si crea tra le costole... inspira... torna su... espira... ancora una volta a sinistra, con calma... ancora un respiro profondo... | Inspirando, torna al centro con le braccia allungate verso l'alto. Espirando, lascia scendere lentamente le braccia lungo i fianchi."
+  },
+  {
+    id: "riscaldamento_bambola",
+    title: "Riscaldamento in Piedi 2",
+    asanaName: "Uttanasana Dolce (Bambola di Pezza)",
+    category: "riscaldamento",
+    categoryLabel: "Riscaldamento",
+    side: "entrambi",
+    description: {
+      entrata: "In piedi con i piedi larghi quanto le anche, piega leggermente le ginocchia. Espirando piegati in avanti partendo dalle anche e lascia cadere il busto verso il basso, completamente abbandonato.",
+      mantenimento: "Mantenimento guidato (15 secondi): Lascia pendere la testa e le braccia verso terra, oppure afferra i gomiti opposti con le mani. Le ginocchia restano morbide. Inspira profondamente... senti la colonna che si allunga per gravità... espira... lascia andare la testa, il collo, le spalle... se vuoi dondola dolcemente da un lato all'altro.",
+      uscita: "Piega bene le ginocchia e, inspirando, risali molto lentamente srotolando la colonna una vertebra alla volta. La testa è l'ultima a risalire."
+    },
+    speechScript: "Rimani in piedi con i piedi larghi quanto le anche e piega leggermente le ginocchia. Espirando, piegati lentamente in avanti partendo dalle anche e lascia cadere il busto verso il basso, come una bambola di pezza. Lascia pendere liberamente la testa e le braccia verso terra, oppure afferra i gomiti opposti con le mani. Le ginocchia restano sempre morbide: qui non serve toccare terra, serve solo lasciar andare. Inspira profondamente... senti la colonna che si allunga dolcemente grazie alla gravità... espira... abbandona completamente la testa, il collo e le spalle... Inspira profondamente... se ti fa piacere, dondola piano il busto da un lato all'altro... espira... senti la parte posteriore delle gambe che si scioglie... rimani qui, appeso e leggero... respira con calma... ancora un respiro profondo... | Piega bene le ginocchia e, inspirando, risali molto lentamente srotolando la colonna una vertebra alla volta. La testa risale per ultima, e con lei ritrovi il tuo equilibrio in piedi."
+  },
+  {
     id: "piedi_tadasana",
     title: "Posizione in Piedi 1",
     asanaName: "Tadasana (Posizione della Montagna)",
@@ -452,6 +480,21 @@ export const YOGA_SEQUENCE: YogaStep[] = [
       uscita: "Riporta l'attenzione ai suoni intorno a te e al contatto del corpo con il suolo. Fai un respiro profondo e riapri gli occhi con calma."
     },
     speechScript: "Siediti in una posizione comoda con la schiena eretta ma non rigida, su un cuscino o anche su una sedia. Appoggia le mani sulle cosce e chiudi dolcemente gli occhi. Praticheremo una meditazione di consapevolezza del respiro. Non devi cambiare nulla: semplicemente osserva il tuo respiro naturale, così com'è. Porta l'attenzione alle narici... senti l'aria fresca che entra... e l'aria tiepida che esce... Osserva l'addome che si solleva a ogni inspirazione... e si abbassa a ogni espirazione... Non guidare il respiro, lascialo libero, e limitati a osservarlo con curiosità... Se arriva un pensiero, va bene: è normale, è ciò che fanno le menti. Notalo con gentilezza, senza giudicarti, e riporta semplicemente l'attenzione al respiro... Il respiro è la tua ancora: ogni volta che ti accorgi di esserti allontanato, quello è un momento di consapevolezza, e puoi tornare a casa... Rimani così, presente, un respiro dopo l'altro... l'aria che entra... l'aria che esce... nient'altro da fare, nessun posto dove andare... Continua a osservare in silenzio per qualche istante... | Ora, dolcemente, allarga l'attenzione ai suoni intorno a te e al contatto del corpo con il suolo. Fai un respiro profondo e, quando ti senti pronto, riapri lentamente gli occhi, portando questa presenza con te."
+  },
+  {
+    id: "meditazione_gentilezza",
+    title: "Meditazione della Gentilezza",
+    asanaName: "Metta (Gentilezza Amorevole)",
+    category: "meditazione",
+    categoryLabel: "Meditazione Guidata",
+    side: "entrambi",
+    isHarvardCore: true,
+    description: {
+      entrata: "Siediti in una posizione comoda con la schiena eretta, su un cuscino o una sedia. Appoggia una mano sul cuore se ti è gradito, e chiudi dolcemente gli occhi.",
+      mantenimento: "Mantenimento guidato: Una meditazione di gentilezza amorevole: ripeterai mentalmente auguri di benessere prima verso te stesso, poi verso una persona cara, e infine verso tutti gli esseri, lasciando che ogni frase risuoni nel cuore.",
+      uscita: "Lascia andare le frasi e rimani qualche istante nella sensazione di calore. Fai un respiro profondo e riapri gli occhi con calma."
+    },
+    speechScript: "Siediti in una posizione comoda con la schiena eretta, su un cuscino o su una sedia. Se ti è gradito, appoggia una mano sul cuore, e chiudi dolcemente gli occhi. Praticheremo la meditazione della gentilezza amorevole. Porta l'attenzione al centro del petto e fai qualche respiro naturale... Ora rivolgi questi auguri a te stesso, ripetendoli mentalmente con me, lasciando che ogni frase risuoni senza fretta... Che io possa essere sereno... Che io possa essere in salute... Che io possa vivere con leggerezza e gentilezza verso me stesso... Osserva le sensazioni che nascono nel petto, qualunque esse siano... Ora porta alla mente una persona a cui vuoi bene. Immagina il suo volto, e rivolgile gli stessi auguri... Che tu possa essere sereno... Che tu possa essere in salute... Che tu possa vivere con leggerezza... Senti il calore che accompagna questi pensieri... Infine, lascia che questa gentilezza si espanda oltre, verso tutte le persone della tua vita e verso tutti gli esseri... Che tutti possano essere sereni... Che tutti possano essere in salute... Che tutti possano vivere in pace... Rimani qualche istante in questo spazio di calore e apertura... | Lascia andare dolcemente le frasi e rimani nella sensazione che hanno lasciato. Fai un respiro profondo e, quando ti senti pronto, riapri lentamente gli occhi, portando questa gentilezza con te nella tua giornata."
   }
 ];
 
