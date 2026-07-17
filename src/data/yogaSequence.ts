@@ -280,6 +280,21 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     speechScript: "Sdraiati a pancia in giù sul tappetino. Unisci le gambe con i dorsi dei piedi appoggiati a terra. Posiziona i palmi delle mani sotto le spalle con i gomiti piegati e stretti vicino ai fianchi. Entriamo nel Cobra. Inspirando, premi il pube a terra e solleva delicatamente la testa e il petto, usando i muscoli della schiena senza spingere sulle mani. Inspira profondamente... senti l'addome che si espande contro il suolo... espira... rilassa le spalle lontano dalle orecchie... rimani qui, sei forte... mantieni il collo lungo in asse... Inspira profondamente... apri il cuore in avanti... espira... tieni i gomiti vicini al corpo... respira con consapevolezza... ancora un respiro profondo... | Espirando lentamente, riabbassa il petto e la fronte a terra, appoggia una guancia sul tappetino e rilassati."
   },
   {
+    id: "piegamento_locusta",
+    title: "Rafforzamento Dorsale",
+    asanaName: "Salabhasana (Posizione della Locusta)",
+    category: "piegamento",
+    categoryLabel: "Piegamenti all'Indietro",
+    side: "entrambi",
+    isHarvardCore: true,
+    description: {
+      entrata: "Sdraiati sulla pancia con le gambe unite e i dorsi dei piedi a terra. Distendi le braccia lungo i fianchi con i palmi rivolti verso l'alto. Appoggia la fronte o il mento al tappetino.",
+      mantenimento: "Mantenimento guidato (15 secondi): Inspirando solleva contemporaneamente la testa, il petto, le braccia e le gambe da terra, allungandoti in avanti e indietro come una locusta. Inspira profondamente... allunga le braccia verso i piedi... espira... mantieni il collo in linea con la colonna... rimani qui, senti i muscoli della schiena che lavorano... respira con calma.",
+      uscita: "Espirando riabbassa lentamente petto, braccia e gambe a terra. Appoggia una guancia sul tappetino e lascia che la schiena si rilassi completamente."
+    },
+    speechScript: "Sdraiati a pancia in giù sul tappetino con le gambe unite e i dorsi dei piedi appoggiati a terra. Distendi le braccia lungo i fianchi con i palmi rivolti verso l'alto e appoggia la fronte al tappetino. Entriamo nella Locusta, una posizione che rinforza tutta la schiena. Inspirando, solleva contemporaneamente la testa, il petto, le braccia e le gambe da terra. Allunga le braccia all'indietro verso i piedi e mantieni lo sguardo verso il basso per proteggere il collo. Inspira profondamente... senti tutta la catena posteriore attiva... espira... allungati in avanti con il petto e indietro con le dita dei piedi... rimani qui, sei forte e stabile... Inspira profondamente... solleva ancora un centimetro il petto... espira... mantieni le gambe attive senza irrigidire il viso... respira con calma... ancora un respiro profondo... | Espirando, riabbassa lentamente il petto, le braccia e le gambe a terra. Appoggia una guancia sul tappetino e lascia che tutta la schiena si rilassi."
+  },
+  {
     id: "piegamento_ponte",
     title: "Posizione del Ponte",
     asanaName: "Setu Bandhasana (Posizione del Ponte)",
@@ -307,6 +322,21 @@ export const YOGA_SEQUENCE: YogaStep[] = [
       uscita: "Aiutandoti con le mani sotto le ginocchia, richiudile delicatamente e distendi le gambe in avanti per sciogliere."
     },
     speechScript: "Portati in posizione seduta con la schiena dritta. Piega le ginocchia, unisci le piante dei piedi davanti a te e avvicina i talloni al bacino. Afferra i piedi con le mani. Manteniamo la posizione della Farfalla per aprire le anche. Lascia scendere le ginocchia verso l'esterno. Inspira profondamente... allunga la colonna verso l'alto... espira... lascia che le ginocchia scendano per gravità... rimani qui, rilassa l'interno delle cosce... Inspira profondamente... senti l'addome che si espande... espira... rilascia ogni tensione accumulata nel bacino... rimani morbido e ricettivo... respira... ancora un respiro profondo... | Per uscire, aiutandoti con le mani sotto le ginocchia, richiudile delicatamente e distendi lentamente le gambe in avanti."
+  },
+  {
+    id: "piegamento_avanti_seduto",
+    title: "Piegamento in Avanti",
+    asanaName: "Paschimottanasana (Piegamento in Avanti da Seduto)",
+    category: "piegamento",
+    categoryLabel: "Piegamento in Avanti",
+    side: "entrambi",
+    isHarvardCore: true,
+    description: {
+      entrata: "Siediti a terra con le gambe distese in avanti e unite. Fletti le punte dei piedi verso di te. Se la parte bassa della schiena tende a incurvarsi, piega leggermente le ginocchia o siediti su un cuscino. Inspira e allunga le braccia verso l'alto.",
+      mantenimento: "Mantenimento guidato (15 secondi): Espirando piegati in avanti partendo dalle anche, mantenendo la schiena lunga, e appoggia le mani dove arrivano: cosce, stinchi o piedi. Inspira profondamente... allunga la colonna in avanti... espira... lasciati scendere dolcemente senza forzare... rimani qui, senti l'allungamento dietro le gambe... respira con calma.",
+      uscita: "Inspirando risali lentamente con la schiena dritta, srotolandoti vertebra dopo vertebra fino a tornare seduto eretto."
+    },
+    speechScript: "Siediti a terra con le gambe distese in avanti e unite, con le punte dei piedi flesse verso di te. Se senti la parte bassa della schiena incurvarsi, piega leggermente le ginocchia oppure siediti sul bordo di un cuscino. Inspirando, allunga le braccia verso l'alto e senti la colonna che si estende. Espirando, piegati lentamente in avanti partendo dalle anche, come se il petto volesse raggiungere le dita dei piedi. Appoggia le mani dove arrivano senza forzare: sulle cosce, sugli stinchi o sui piedi. Inspira profondamente... allunga la colonna in avanti... espira... lascia che il busto scenda dolcemente verso le gambe... rimani qui, senti l'allungamento lungo tutta la parte posteriore del corpo... Inspira profondamente... crea spazio tra le vertebre... espira... rilassa la testa e il collo, abbandona ogni resistenza... respira con calma... ancora un respiro profondo... | Inspirando, risali lentamente srotolando la colonna vertebra dopo vertebra, fino a tornare seduto con la schiena eretta."
   },
   {
     id: "defaticamento_apanasana",
@@ -351,6 +381,21 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     speechScript: "Con le braccia a croce e le ginocchia piegate al centro, lascia cadere delicatamente le ginocchia unite verso il lato destro del corpo, ruotando la testa a sinistra. Manteniamo la torsione passiva a destra. Inspira profondamente... espira... rilassa la spalla sinistra verso il pavimento... rimani qui... abbandona tutto il peso del corpo... Inspira profondamente... senti il respiro che massaggia la colonna... espira... lascia andare ogni ultima tensione... percepisci la quiete che si diffonde... ancora un respiro profondo... | Inspirando, riporta le ginocchia e la testa al centro. Poi distendi le gambe lungo il tappetino ed allunga le braccia."
   },
   {
+    id: "defaticamento_gambe_al_muro",
+    title: "Gambe al Muro",
+    asanaName: "Viparita Karani (Posizione delle Gambe al Muro)",
+    category: "defaticamento",
+    categoryLabel: "Defaticamento",
+    side: "entrambi",
+    isHarvardCore: true,
+    description: {
+      entrata: "Porta il tappetino vicino a una parete. Siediti di fianco al muro, poi sdraiati sulla schiena facendo oscillare le gambe verso l'alto, appoggiandole distese contro la parete. I glutei possono restare a qualche centimetro dal muro. Distendi le braccia lungo i fianchi e chiudi gli occhi.",
+      mantenimento: "Mantenimento guidato (15 secondi): Lascia che il muro sostenga completamente il peso delle gambe. Inspira profondamente... senti le gambe che si svuotano e si alleggeriscono... espira... abbandona il bacino e la schiena alla terra... rimani qui, non c'è nulla da fare... respira con calma.",
+      uscita: "Piega le ginocchia verso il petto, girati dolcemente su un fianco e prenditi qualche istante prima di risalire a sederti con calma."
+    },
+    speechScript: "Porta il tappetino vicino a una parete. Siediti di fianco al muro e poi, con un movimento dolce, sdraiati sulla schiena facendo oscillare le gambe verso l'alto fino ad appoggiarle distese contro la parete. Va benissimo se i glutei restano a qualche centimetro dal muro. Distendi le braccia lungo i fianchi con i palmi verso l'alto e chiudi gli occhi. Questa è Viparita Karani, una posizione rigenerante che favorisce il ritorno della circolazione e calma profondamente il sistema nervoso. Lascia che il muro sostenga tutto il peso delle gambe. Inspira profondamente... senti le gambe che si svuotano e diventano leggere... espira... abbandona il bacino e tutta la schiena alla terra... Inspira profondamente... senti l'addome che si solleva morbido... espira... rilascia le spalle, la gola, il viso... rimani qui, non c'è nulla da fare e nessun posto dove andare... respira con calma... ancora un respiro profondo... | Piega lentamente le ginocchia verso il petto, girati dolcemente su un fianco e riposa qualche istante prima di risalire a sederti con calma."
+  },
+  {
     id: "rilassamento_savasana",
     title: "Rilassamento Finale",
     asanaName: "Savasana (Posizione del Cadavere)",
@@ -392,6 +437,21 @@ export const YOGA_SEQUENCE: YogaStep[] = [
       uscita: "Riprendi dolcemente contatto con l'esterno. Respira profondamente, muovi le dita e riapri gli occhi con calma. Namastè."
     },
     speechScript: "Rimani seduto in silenzio con la schiena dritta, oppure se preferisci sdraiati di nuovo nella comoda posa di Savasana. Chiudi dolcemente gli occhi. Iniziamo il nostro viaggio di meditazione e consapevolezza con un body scan profondo. Porta l'attenzione alla sommità della testa. Senti la pelle del cranio che si distende e si rilassa... Scendi alla fronte, ammorbidisci lo spazio tra le sopracciglia... Rilassa le palpebre, le guance, le labbra e lascia cadere la lingua all'interno della bocca, rilasciando completamente la mandibola... Senti il collo e la gola che si rilassano, lasciando che le spalle scivolino pesanti verso la terra... Porta l'attenzione alla spalla sinistra, scendi lungo il braccio, il gomito, il polso, il palmo della mano sinistra e ad ogni singolo dito, rilassandoli uno ad uno... Ora sposta l'attenzione alla spalla destra, scendi lungo il braccio, il gomito, il polso, il palmo della mano destra e ad ogni dito... Senti il petto aprirsi, e l'addome muoversi morbido, cullato dal tuo respiro naturale... Scendi al bacino, rilassa le anche e le natiche appoggiate a terra... Rilassa la coscia sinistra, il ginocchio, il polpaccio, la caviglia, la pianta del piede sinistro e tutte le dita... Ora rilassa la coscia destra, il ginocchio, il polpaccio, la caviglia, il piede destro e tutte le dita... Tutto il tuo corpo, dalla testa ai piedi, è ora rilassato e pervaso da una luce calda, calma e silenziosa. Sei tutt'uno con questa pace interiore... Rimani in questo stato di silenzio per qualche istante... | Molto delicatamente, riporta la consapevolezza al tuo respiro. Senti la vita che scorre in te. Fai un respiro profondo, muovi le dita e, quando ti senti pronto, riapri dolcemente gli occhi portando questa pace nella tua giornata. Namastè."
+  },
+  {
+    id: "meditazione_respiro",
+    title: "Meditazione del Respiro",
+    asanaName: "Consapevolezza del Respiro (Mindfulness)",
+    category: "meditazione",
+    categoryLabel: "Meditazione Guidata",
+    side: "entrambi",
+    isHarvardCore: true,
+    description: {
+      entrata: "Siediti in una posizione comoda con la schiena eretta ma non rigida, su un cuscino o una sedia. Appoggia le mani sulle cosce e chiudi dolcemente gli occhi.",
+      mantenimento: "Mantenimento guidato: Una meditazione di consapevolezza ancorata al respiro naturale: osserva l'aria che entra ed esce senza modificarla e, ogni volta che la mente si distrae, riportala gentilmente al respiro, senza giudizio.",
+      uscita: "Riporta l'attenzione ai suoni intorno a te e al contatto del corpo con il suolo. Fai un respiro profondo e riapri gli occhi con calma."
+    },
+    speechScript: "Siediti in una posizione comoda con la schiena eretta ma non rigida, su un cuscino o anche su una sedia. Appoggia le mani sulle cosce e chiudi dolcemente gli occhi. Praticheremo una meditazione di consapevolezza del respiro. Non devi cambiare nulla: semplicemente osserva il tuo respiro naturale, così com'è. Porta l'attenzione alle narici... senti l'aria fresca che entra... e l'aria tiepida che esce... Osserva l'addome che si solleva a ogni inspirazione... e si abbassa a ogni espirazione... Non guidare il respiro, lascialo libero, e limitati a osservarlo con curiosità... Se arriva un pensiero, va bene: è normale, è ciò che fanno le menti. Notalo con gentilezza, senza giudicarti, e riporta semplicemente l'attenzione al respiro... Il respiro è la tua ancora: ogni volta che ti accorgi di esserti allontanato, quello è un momento di consapevolezza, e puoi tornare a casa... Rimani così, presente, un respiro dopo l'altro... l'aria che entra... l'aria che esce... nient'altro da fare, nessun posto dove andare... Continua a osservare in silenzio per qualche istante... | Ora, dolcemente, allarga l'attenzione ai suoni intorno a te e al contatto del corpo con il suolo. Fai un respiro profondo e, quando ti senti pronto, riapri lentamente gli occhi, portando questa presenza con te."
   }
 ];
 
