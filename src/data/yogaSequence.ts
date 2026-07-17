@@ -527,6 +527,14 @@ export const YOGA_SEQUENCE: YogaStep[] = [
 ];
 
 export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]): YogaStep[] {
+  // Resolve ids preserving THEIR order (not catalog order), so each list
+  // controls the actual flow of the session and entry cues can match the
+  // position the previous pose ends in.
+  const byIds = (ids: string[]) =>
+    ids
+      .map(id => allSteps.find(s => s.id === id))
+      .filter((s): s is YogaStep => s !== undefined);
+
   if (durationMin <= 10) {
     const ids = [
       "integrazione_sukhasana",
@@ -536,21 +544,25 @@ export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]
       "rilassamento_savasana",
       "meditazione_guida"
     ];
-    return allSteps.filter(s => ids.includes(s.id));
+    return byIds(ids);
   }
   if (durationMin <= 15) {
+    // Essentials only (~10 poses): centering, spine warm-up, one gentle
+    // dynamic flow, standing strength, one backbend + counterpose, then a
+    // short breath meditation instead of the long body scan.
     const ids = [
       "integrazione_sukhasana",
       "riscaldamento_gatto_mucca",
       "piedi_tadasana",
+      "piedi_saluto_sole",
       "piedi_guerriero2_sinistro",
       "piedi_guerriero2_destro",
       "piegamento_cobra",
       "defaticamento_apanasana",
       "rilassamento_savasana",
-      "meditazione_guida"
+      "meditazione_respiro"
     ];
-    return allSteps.filter(s => ids.includes(s.id));
+    return byIds(ids);
   }
   if (durationMin <= 20) {
     const ids = [
@@ -567,14 +579,54 @@ export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]
       "respirazione_sama_vritti",
       "meditazione_guida"
     ];
-    return allSteps.filter(s => ids.includes(s.id));
+    return byIds(ids);
   }
   if (durationMin <= 30) {
+    // Balanced full arc (~17 poses): seated + standing warm-up, dynamic
+    // flow, standing strength, balance (tree, Harvard's fall-prevention
+    // staple), backbend with its forward-fold counterpose, hips, cool-down,
+    // then the full closing block. Triangle pair is reserved for 45 min.
     const ids = [
       "integrazione_sukhasana",
-      "riscaldamento_gatto_mucca",
       "riscaldamento_collo_spalle",
+      "riscaldamento_gatto_mucca",
+      "riscaldamento_mezzaluna",
       "piedi_tadasana",
+      "piedi_saluto_sole",
+      "piedi_guerriero2_sinistro",
+      "piedi_guerriero2_destro",
+      "equilibrio_albero_sinistro",
+      "equilibrio_albero_destro",
+      "piegamento_cobra",
+      "piegamento_avanti_seduto",
+      "apertura_farfalla",
+      "defaticamento_apanasana",
+      "rilassamento_savasana",
+      "respirazione_sama_vritti",
+      "meditazione_guida"
+    ];
+    return byIds(ids);
+  }
+  if (durationMin <= 45) {
+    // Complete curated practice (~27 poses, ~90s each): full warm-up chain
+    // with a natural floor-to-standing transition (down dog -> mezzaluna,
+    // whose entry cue is "alzati in piedi"), standing/balance block, all
+    // three backbends with
+    // forward-fold counterpose, seated twists, restorative inversion, and
+    // the long closing block. Deliberately excluded (Builder-only): Warrior
+    // III (too demanding for a guided beginner class), supine twists
+    // (covered by the seated pair), sufi rolls and the standing shoulder
+    // opener (overlap with other warm-ups), Metta meditation.
+    const ids = [
+      "integrazione_sukhasana",
+      "riscaldamento_collo_spalle",
+      "riscaldamento_gatto_mucca",
+      "riscaldamento_balasana",
+      "riscaldamento_cane",
+      "riscaldamento_mezzaluna",
+      "riscaldamento_bambola",
+      "piedi_tadasana",
+      "piedi_saluto_sole",
       "piedi_guerriero2_sinistro",
       "piedi_guerriero2_destro",
       "piedi_triangolo_sinistro",
@@ -582,13 +634,19 @@ export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]
       "equilibrio_albero_sinistro",
       "equilibrio_albero_destro",
       "piegamento_cobra",
+      "piegamento_locusta",
+      "piegamento_ponte",
+      "piegamento_avanti_seduto",
       "apertura_farfalla",
+      "torsione_matsyendra_sinistro",
+      "torsione_matsyendra_destro",
       "defaticamento_apanasana",
+      "defaticamento_gambe_al_muro",
       "rilassamento_savasana",
       "respirazione_sama_vritti",
       "meditazione_guida"
     ];
-    return allSteps.filter(s => ids.includes(s.id));
+    return byIds(ids);
   }
   return allSteps;
 }
