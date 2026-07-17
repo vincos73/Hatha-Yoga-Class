@@ -118,8 +118,22 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     speechScript: "Alzati in piedi con i piedi uniti o larghi quanto le anche, e il peso distribuito in modo uniforme sulle piante. Inspirando, allunga le braccia sopra la testa e unisci i palmi, oppure intreccia le dita lasciando gli indici distesi verso l'alto. Senti tutto il corpo che si allunga dalla terra al cielo. Espirando, inclina lentamente il busto verso destra, mantenendo entrambi i fianchi lunghi e i piedi ben radicati. Inspira profondamente... torna al centro allungandoti ancora verso l'alto... espira... inclinati ora verso sinistra, come una mezzaluna... senti il fianco destro che si apre... Inspira profondamente... risali al centro... espira... ripeti dolcemente verso destra, respirando nello spazio che si crea tra le costole... inspira... torna su... espira... ancora una volta a sinistra, con calma... ancora un respiro profondo... | Inspirando, torna al centro con le braccia allungate verso l'alto. Espirando, lascia scendere lentamente le braccia lungo i fianchi."
   },
   {
-    id: "riscaldamento_bambola",
+    id: "riscaldamento_spalle",
     title: "Riscaldamento in Piedi 2",
+    asanaName: "Apertura delle Spalle in Piedi",
+    category: "riscaldamento",
+    categoryLabel: "Riscaldamento",
+    side: "entrambi",
+    description: {
+      entrata: "Rimani in piedi con i piedi larghi quanto le anche e le braccia rilassate lungo i fianchi. Ammorbidisci le ginocchia e allunga la colonna verso l'alto.",
+      mantenimento: "Mantenimento guidato (15 secondi): Inspirando disegna ampi cerchi con le braccia portandole in alto, espirando lasciale scendere dietro di te. Dopo alcuni cerchi, intreccia le mani dietro la schiena e, inspirando, apri il petto allontanando le nocche dal corpo. Inspira profondamente... apri il cuore... espira... rilassa le spalle lontano dalle orecchie.",
+      uscita: "Sciogli l'intreccio delle mani e lascia tornare le braccia morbide lungo i fianchi, sentendo le spalle più libere e leggere."
+    },
+    speechScript: "Rimani in piedi con i piedi larghi quanto le anche e le braccia rilassate lungo i fianchi. Ammorbidisci le ginocchia e allunga la colonna verso l'alto. Iniziamo a sciogliere le spalle. Inspirando, porta le braccia in avanti e in alto disegnando un grande cerchio, ed espirando lasciale scendere all'indietro e in basso. Continua così, ampi cerchi lenti che seguono il ritmo del respiro. Inspira profondamente... le braccia salgono... espira... le braccia scendono dietro di te, aprendo il petto... ancora una volta, con calma... Ora ferma i cerchi e intreccia le dita delle mani dietro la schiena. Inspirando, allontana dolcemente le nocche dal corpo e apri il petto verso l'alto. Inspira profondamente... senti le spalle che si aprono e il cuore che si solleva... espira... rilassa le spalle lontano dalle orecchie, senza forzare... rimani qui, respira nello spazio del petto... ancora un respiro profondo... | Sciogli delicatamente l'intreccio delle mani e lascia tornare le braccia morbide lungo i fianchi. Senti le spalle più libere e leggere."
+  },
+  {
+    id: "riscaldamento_bambola",
+    title: "Riscaldamento in Piedi 3",
     asanaName: "Uttanasana Dolce (Bambola di Pezza)",
     category: "riscaldamento",
     categoryLabel: "Riscaldamento",
@@ -145,6 +159,20 @@ export const YOGA_SEQUENCE: YogaStep[] = [
       uscita: "Rilassa leggermente le ginocchia e mantieni lo stato di calma mentale, preparandoti alla posizione successiva."
     },
     speechScript: "Portati in piedi all'inizio del tappetino. Unisci gli alluci e mantieni i talloni leggermente separati. Rilassa le braccia lungo i fianchi con i palmi rivolti in avanti. Troviamo stabilità in Tadasana. Distribuisci il peso in modo uniforme sulla pianta dei piedi. Attiva le cosce e allinea il bacino. Inspira profondamente... senti l'addome che si espande... espira... rilassa le spalle e spingile lontano dalle orecchie... allunga la colonna verso il cielo... rimani qui, sei forte e radicato come una montagna... Inspira profondamente... percepisci la tua stabilità... espira... rilassati mantenendo la posa eretta... inspira... espira... ancora un respiro profondo... | Rilassa dolcemente la tensione delle gambe, mantenendo la mente concentrata e calma."
+  },
+  {
+    id: "piedi_saluto_sole",
+    title: "Mezzo Saluto al Sole",
+    asanaName: "Ardha Surya Namaskara (Saluto al Sole Semplificato)",
+    category: "in piedi",
+    categoryLabel: "Posizioni in Piedi",
+    side: "entrambi",
+    description: {
+      entrata: "Parti in piedi in Tadasana, con i piedi larghi quanto le anche e le mani unite davanti al petto. È la versione semplificata del Saluto al Sole, tutta in piedi, perfetta per iniziare: le ginocchia possono restare sempre morbide.",
+      mantenimento: "Mantenimento guidato: Un flusso dolce guidato dal respiro, ripetuto per due cicli: inspirando le braccia salgono al cielo, espirando ci si piega in avanti con le ginocchia morbide, inspirando si solleva il busto a metà allungando la schiena, espirando si scende di nuovo, e inspirando si risale fino a distendersi verso l'alto.",
+      uscita: "Espirando riporta le mani unite davanti al cuore e ferma il movimento. Senti il calore e l'energia che il flusso ha risvegliato nel corpo."
+    },
+    speechScript: "Parti in piedi con i piedi larghi quanto le anche e le mani unite davanti al petto. Praticheremo un Saluto al Sole semplificato, tutto in piedi, guidato dal respiro. Le ginocchia possono restare sempre leggermente piegate. Iniziamo il primo ciclo. Inspirando, allunga le braccia in avanti e in alto verso il cielo, aprendo il petto... Espirando, piegati lentamente in avanti partendo dalle anche, con le ginocchia morbide, e lascia scendere le mani verso terra... Inspirando, solleva il busto a metà, allungando la schiena in avanti con le mani appoggiate sugli stinchi... Espirando, lasciati scendere di nuovo verso il basso, morbido... Inspirando, risali lentamente con tutto il busto e distendi le braccia verso il cielo... Espirando, riporta le mani unite davanti al cuore... Secondo ciclo, ancora più fluido. Inspira e sali con le braccia verso l'alto... espira e piegati in avanti, abbandonando la testa... inspira e allunga la schiena a metà... espira e scendi di nuovo... inspira e risali fino in cima, allungandoti tutto verso il sole... espira e torna con le mani al cuore... Rimani un istante fermo e senti il respiro che si è fatto più vivo... | Mantieni le mani unite davanti al cuore e fai un ultimo respiro profondo. Senti il calore e l'energia che questo flusso ha risvegliato nel tuo corpo."
   },
   {
     id: "piedi_guerriero2_sinistro",

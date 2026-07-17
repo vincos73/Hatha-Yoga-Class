@@ -146,7 +146,7 @@ export function WelcomeScreen({
                 ))}
               </div>
               <p className="text-[11px] text-[#2d3e35]/65 leading-relaxed">
-                * La durata della sessione seleziona in automatico un set bilanciato di asana (9 passi per 15 min, 16 passi per 30 min, tutti i 33 passi per 45 min) e ne adatta il ritmo di tenuta complessivo.
+                * La durata della sessione seleziona in automatico un set bilanciato di asana (9 passi per 15 min, 16 passi per 30 min, tutti i 35 passi per 45 min) e ne adatta il ritmo di tenuta complessivo.
               </p>
             </div>
             {/* Primary CTA Block */}
