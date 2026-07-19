@@ -116,7 +116,7 @@ export function BuilderScreen({
           <button
             onClick={() => {
               const defaultTemplate = YOGA_SEQUENCE.filter(s =>
-                ["integrazione_sukhasana", "riscaldamento_gatto_mucca", "piedi_tadasana", "piegamento_cobra", "rilassamento_savasana"].includes(s.id)
+                ["integrazione_sukhasana", "riscaldamento_gatto_mucca", "piedi_tadasana", "piegamento_sfinge", "rilassamento_savasana"].includes(s.id)
               );
               setCustomSequence(defaultTemplate);
             }}

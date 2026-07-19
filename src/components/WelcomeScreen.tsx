@@ -146,7 +146,7 @@ export function WelcomeScreen({
                 ))}
               </div>
               <p className="text-[11px] text-[#2d3e35]/65 leading-relaxed">
-                * La durata della sessione seleziona in automatico un set bilanciato di asana (10 passi per 15 min, 17 passi per 30 min, 27 passi per 45 min, dal catalogo completo di 35 asana disponibili nello Yoga Builder) e ne adatta il ritmo di tenuta complessivo.
+                * La durata della sessione seleziona in automatico un set bilanciato di asana (9 passi per 15 min, 17 passi per 30 min, 24 passi per 45 min, dal catalogo completo di 31 asana disponibili nello Yoga Builder) e ne adatta il ritmo di tenuta complessivo.
               </p>
             </div>
             {/* Primary CTA Block */}

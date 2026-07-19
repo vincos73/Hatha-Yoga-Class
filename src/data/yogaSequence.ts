@@ -104,20 +104,6 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     speechScript: "Rimani seduto a gambe incrociate. Lascia scendere le braccia rilassate lungo i fianchi o appoggia i palmi sulle cosce. Iniziamo a sciogliere il collo e le spalle. Inspirando, solleva le spalle verso le orecchie, espirando ruotale all'indietro e lasciale scendere. Ora inclina la testa portando l'orecchio sinistro alla spalla sinistra, ed espirando lascia scivolare il mento al petto. Inspirando, porta l'orecchio destro alla spalla destra. Inspira profondamente... senti il collo che si allunga... espira... rilassa le spalle verso il basso... rilascia ogni tensione accumulata... rimani qui, respira... Inspira... espira... senti lo spazio che si crea nella zona cervicale... ancora un respiro profondo... | Riporta delicatamente la testa in asse al centro e rilassa le spalle verso il basso."
   },
   {
-    id: "riscaldamento_mezzaluna",
-    title: "Riscaldamento in Piedi 1",
-    asanaName: "Allungamento Laterale in Piedi (Mezzaluna)",
-    category: "riscaldamento",
-    categoryLabel: "Riscaldamento",
-    side: "entrambi",
-    description: {
-      entrata: "Alzati in piedi con i piedi uniti o larghi quanto le anche, il peso ben distribuito. Inspirando allunga le braccia sopra la testa e unisci i palmi, oppure intreccia le dita con gli indici distesi verso l'alto.",
-      mantenimento: "Mantenimento guidato (15 secondi): Espirando inclina il busto verso destra mantenendo entrambi i fianchi lunghi, poi inspira per tornare al centro ed espira inclinandoti a sinistra. Inspira profondamente... allungati verso l'alto... espira... inclinati mantenendo i piedi ben radicati... senti il fianco che si apre e respira nello spazio creato.",
-      uscita: "Inspirando torna al centro con le braccia verso l'alto, poi espirando lascia scendere lentamente le braccia lungo i fianchi."
-    },
-    speechScript: "Alzati in piedi con i piedi uniti o larghi quanto le anche, e il peso distribuito in modo uniforme sulle piante. Inspirando, allunga le braccia sopra la testa e unisci i palmi, oppure intreccia le dita lasciando gli indici distesi verso l'alto. Senti tutto il corpo che si allunga dalla terra al cielo. Espirando, inclina lentamente il busto verso destra, mantenendo entrambi i fianchi lunghi e i piedi ben radicati. Inspira profondamente... torna al centro allungandoti ancora verso l'alto... espira... inclinati ora verso sinistra, come una mezzaluna... senti il fianco destro che si apre... Inspira profondamente... risali al centro... espira... ripeti dolcemente verso destra, respirando nello spazio che si crea tra le costole... inspira... torna su... espira... ancora una volta a sinistra, con calma... ancora un respiro profondo... | Inspirando, torna al centro con le braccia allungate verso l'alto. Espirando, lascia scendere lentamente le braccia lungo i fianchi."
-  },
-  {
     id: "riscaldamento_spalle",
     title: "Riscaldamento in Piedi 2",
     asanaName: "Apertura delle Spalle in Piedi",
@@ -159,20 +145,6 @@ export const YOGA_SEQUENCE: YogaStep[] = [
       uscita: "Rilassa leggermente le ginocchia e mantieni lo stato di calma mentale, preparandoti alla posizione successiva."
     },
     speechScript: "Portati in piedi all'inizio del tappetino. Unisci gli alluci e mantieni i talloni leggermente separati. Rilassa le braccia lungo i fianchi con i palmi rivolti in avanti. Troviamo stabilità in Tadasana. Distribuisci il peso in modo uniforme sulla pianta dei piedi. Attiva le cosce e allinea il bacino. Inspira profondamente... senti l'addome che si espande... espira... rilassa le spalle e spingile lontano dalle orecchie... allunga la colonna verso il cielo... rimani qui, sei forte e radicato come una montagna... Inspira profondamente... percepisci la tua stabilità... espira... rilassati mantenendo la posa eretta... inspira... espira... ancora un respiro profondo... | Rilassa dolcemente la tensione delle gambe, mantenendo la mente concentrata e calma."
-  },
-  {
-    id: "piedi_saluto_sole",
-    title: "Mezzo Saluto al Sole",
-    asanaName: "Ardha Surya Namaskara (Saluto al Sole Semplificato)",
-    category: "in piedi",
-    categoryLabel: "Posizioni in Piedi",
-    side: "entrambi",
-    description: {
-      entrata: "Parti in piedi in Tadasana, con i piedi larghi quanto le anche e le mani unite davanti al petto. È la versione semplificata del Saluto al Sole, tutta in piedi, perfetta per iniziare: le ginocchia possono restare sempre morbide.",
-      mantenimento: "Mantenimento guidato: Un flusso dolce guidato dal respiro, ripetuto per due cicli: inspirando le braccia salgono al cielo, espirando ci si piega in avanti con le ginocchia morbide, inspirando si solleva il busto a metà allungando la schiena, espirando si scende di nuovo, e inspirando si risale fino a distendersi verso l'alto.",
-      uscita: "Espirando riporta le mani unite davanti al cuore e ferma il movimento. Senti il calore e l'energia che il flusso ha risvegliato nel corpo."
-    },
-    speechScript: "Parti in piedi con i piedi larghi quanto le anche e le mani unite davanti al petto. Praticheremo un Saluto al Sole semplificato, tutto in piedi, guidato dal respiro. Le ginocchia possono restare sempre leggermente piegate. Iniziamo il primo ciclo. Inspirando, allunga le braccia in avanti e in alto verso il cielo, aprendo il petto... Espirando, piegati lentamente in avanti partendo dalle anche, con le ginocchia morbide, e lascia scendere le mani verso terra... Inspirando, solleva il busto a metà, allungando la schiena in avanti con le mani appoggiate sugli stinchi... Espirando, lasciati scendere di nuovo verso il basso, morbido... Inspirando, risali lentamente con tutto il busto e distendi le braccia verso il cielo... Espirando, riporta le mani unite davanti al cuore... Secondo ciclo, ancora più fluido. Inspira e sali con le braccia verso l'alto... espira e piegati in avanti, abbandonando la testa... inspira e allunga la schiena a metà... espira e scendi di nuovo... inspira e risali fino in cima, allungandoti tutto verso il sole... espira e torna con le mani al cuore... Rimani un istante fermo e senti il respiro che si è fatto più vivo... | Mantieni le mani unite davanti al cuore e fai un ultimo respiro profondo. Senti il calore e l'energia che questo flusso ha risvegliato nel tuo corpo."
   },
   {
     id: "piedi_guerriero2_sinistro",
@@ -321,34 +293,19 @@ export const YOGA_SEQUENCE: YogaStep[] = [
     speechScript: "Siediti sul tappetino. Piega la gamba sinistra portando il tallone all'esterno del gluteo destro. Piega la gamba destra scavalcando la sinistra, poggiando la pianta del piede a terra. Porta la mano destra dietro la schiena e abbraccia il ginocchio destro con il braccio sinistro. Manteniamo la torsione verso destra. Inspira profondamente... allunga la schiena verso il cielo... espira... ruota il busto a destra guardando oltre la spalla destra... rimani qui, sei forte... rilassa le spalle... Inspira profondamente... senti l'addome che preme contro la coscia... espira... rilassa le spalle... senti l'allungamento e la purificazione della colonna... ancora un respiro profondo... | Espirando, ritorna lentamente con il busto al centro, sciogli la posizione delle gambe e rilassale."
   },
   {
-    id: "piegamento_cobra",
+    id: "piegamento_sfinge",
     title: "Piegamento all'Indietro",
-    asanaName: "Bhujangasana (Posizione del Cobra)",
+    asanaName: "Salamba Bhujangasana (Posizione della Sfinge)",
     category: "piegamento",
     categoryLabel: "Piegamenti all'Indietro",
     side: "entrambi",
     isHarvardCore: true,
     description: {
-      entrata: "Sdraiati sulla pancia a terra. Unisci le gambe con i dorsi dei piedi appoggiati a terra. Posiziona le mani sotto le spalle con i gomiti piegati e stretti vicino ai fianchi del busto.",
-      mantenimento: "Mantenimento guidato (15 secondi): Inspirando premi il pube a terra e solleva dolcemente testa e petto, usando i muscoli spinali senza sforzare le mani. Inspira profondamente... apri il cuore... espira... rilassa le spalle lontano dalle orecchie... gomiti piegati vicino al corpo... rimani qui, sei forte... respira profondamente.",
-      uscita: "Espirando lentamente, riabbassa il petto e la fronte a terra. Appoggia una guancia sul tappetino e rilassati."
+      entrata: "Sdraiati sulla pancia con le gambe distese e i dorsi dei piedi appoggiati a terra. Porta i gomiti esattamente sotto le spalle, con gli avambracci paralleli tra loro appoggiati al tappetino e i palmi a terra.",
+      mantenimento: "Mantenimento guidato (15 secondi): Premendo dolcemente gli avambracci a terra, solleva il petto e allunga la colonna in avanti, con le spalle lontane dalle orecchie. Inspira profondamente... apri il petto in avanti... espira... lascia il bacino pesante e i glutei morbidi... rimani qui, un'apertura dolce e sostenuta... respira con calma.",
+      uscita: "Espirando abbassa lentamente il petto a terra, sfila le braccia e appoggia una guancia sul tappetino, lasciando che la schiena si rilassi."
     },
-    speechScript: "Sdraiati a pancia in giù sul tappetino. Unisci le gambe con i dorsi dei piedi appoggiati a terra. Posiziona i palmi delle mani sotto le spalle con i gomiti piegati e stretti vicino ai fianchi. Entriamo nel Cobra. Inspirando, premi il pube a terra e solleva delicatamente la testa e il petto, usando i muscoli della schiena senza spingere sulle mani. Inspira profondamente... senti l'addome che si espande contro il suolo... espira... rilassa le spalle lontano dalle orecchie... rimani qui, sei forte... mantieni il collo lungo in asse... Inspira profondamente... apri il cuore in avanti... espira... tieni i gomiti vicini al corpo... respira con consapevolezza... ancora un respiro profondo... | Espirando lentamente, riabbassa il petto e la fronte a terra, appoggia una guancia sul tappetino e rilassati."
-  },
-  {
-    id: "piegamento_locusta",
-    title: "Rafforzamento Dorsale",
-    asanaName: "Salabhasana (Posizione della Locusta)",
-    category: "piegamento",
-    categoryLabel: "Piegamenti all'Indietro",
-    side: "entrambi",
-    isHarvardCore: true,
-    description: {
-      entrata: "Sdraiati sulla pancia con le gambe unite e i dorsi dei piedi a terra. Distendi le braccia lungo i fianchi con i palmi rivolti verso l'alto. Appoggia la fronte o il mento al tappetino.",
-      mantenimento: "Mantenimento guidato (15 secondi): Inspirando solleva contemporaneamente la testa, il petto, le braccia e le gambe da terra, allungandoti in avanti e indietro come una locusta. Inspira profondamente... allunga le braccia verso i piedi... espira... mantieni il collo in linea con la colonna... rimani qui, senti i muscoli della schiena che lavorano... respira con calma.",
-      uscita: "Espirando riabbassa lentamente petto, braccia e gambe a terra. Appoggia una guancia sul tappetino e lascia che la schiena si rilassi completamente."
-    },
-    speechScript: "Sdraiati a pancia in giù sul tappetino con le gambe unite e i dorsi dei piedi appoggiati a terra. Distendi le braccia lungo i fianchi con i palmi rivolti verso l'alto e appoggia la fronte al tappetino. Entriamo nella Locusta, una posizione che rinforza tutta la schiena. Inspirando, solleva contemporaneamente la testa, il petto, le braccia e le gambe da terra. Allunga le braccia all'indietro verso i piedi e mantieni lo sguardo verso il basso per proteggere il collo. Inspira profondamente... senti tutta la catena posteriore attiva... espira... allungati in avanti con il petto e indietro con le dita dei piedi... rimani qui, sei forte e stabile... Inspira profondamente... solleva ancora un centimetro il petto... espira... mantieni le gambe attive senza irrigidire il viso... respira con calma... ancora un respiro profondo... | Espirando, riabbassa lentamente il petto, le braccia e le gambe a terra. Appoggia una guancia sul tappetino e lascia che tutta la schiena si rilassi."
+    speechScript: "Sdraiati a pancia in giù sul tappetino con le gambe distese e i dorsi dei piedi appoggiati a terra. Porta i gomiti esattamente sotto le spalle, con gli avambracci paralleli tra loro e i palmi appoggiati al tappetino. Entriamo nella Sfinge, un'apertura dolce e sicura per tutta la schiena. Premendo delicatamente gli avambracci a terra, solleva il petto e allunga la colonna in avanti, mantenendo le spalle lontane dalle orecchie. Inspira profondamente... senti il petto che si apre in avanti... espira... lascia il bacino e le gambe pesanti, completamente rilassati verso terra... rimani qui, il cuore si solleva senza sforzo... Inspira profondamente... allunga la nuca verso l'alto mantenendo lo sguardo morbido in avanti... espira... sciogli ogni tensione dalla fronte e dalla mandibola... respira con calma... ancora un respiro profondo... | Espirando, abbassa lentamente il petto a terra, sfila le braccia e appoggia una guancia sul tappetino. Lascia che la schiena si rilassi completamente."
   },
   {
     id: "piegamento_ponte",
@@ -378,21 +335,6 @@ export const YOGA_SEQUENCE: YogaStep[] = [
       uscita: "Aiutandoti con le mani sotto le ginocchia, richiudile delicatamente e distendi le gambe in avanti per sciogliere."
     },
     speechScript: "Portati in posizione seduta con la schiena dritta. Piega le ginocchia, unisci le piante dei piedi davanti a te e avvicina i talloni al bacino. Afferra i piedi con le mani. Manteniamo la posizione della Farfalla per aprire le anche. Lascia scendere le ginocchia verso l'esterno. Inspira profondamente... allunga la colonna verso l'alto... espira... lascia che le ginocchia scendano per gravità... rimani qui, rilassa l'interno delle cosce... Inspira profondamente... senti l'addome che si espande... espira... rilascia ogni tensione accumulata nel bacino... rimani morbido e ricettivo... respira... ancora un respiro profondo... | Per uscire, aiutandoti con le mani sotto le ginocchia, richiudile delicatamente e distendi lentamente le gambe in avanti."
-  },
-  {
-    id: "piegamento_avanti_seduto",
-    title: "Piegamento in Avanti",
-    asanaName: "Paschimottanasana (Piegamento in Avanti da Seduto)",
-    category: "piegamento",
-    categoryLabel: "Piegamento in Avanti",
-    side: "entrambi",
-    isHarvardCore: true,
-    description: {
-      entrata: "Siediti a terra con le gambe distese in avanti e unite. Fletti le punte dei piedi verso di te. Se la parte bassa della schiena tende a incurvarsi, piega leggermente le ginocchia o siediti su un cuscino. Inspira e allunga le braccia verso l'alto.",
-      mantenimento: "Mantenimento guidato (15 secondi): Espirando piegati in avanti partendo dalle anche, mantenendo la schiena lunga, e appoggia le mani dove arrivano: cosce, stinchi o piedi. Inspira profondamente... allunga la colonna in avanti... espira... lasciati scendere dolcemente senza forzare... rimani qui, senti l'allungamento dietro le gambe... respira con calma.",
-      uscita: "Inspirando risali lentamente con la schiena dritta, srotolandoti vertebra dopo vertebra fino a tornare seduto eretto."
-    },
-    speechScript: "Siediti a terra con le gambe distese in avanti e unite, con le punte dei piedi flesse verso di te. Se senti la parte bassa della schiena incurvarsi, piega leggermente le ginocchia oppure siediti sul bordo di un cuscino. Inspirando, allunga le braccia verso l'alto e senti la colonna che si estende. Espirando, piegati lentamente in avanti partendo dalle anche, come se il petto volesse raggiungere le dita dei piedi. Appoggia le mani dove arrivano senza forzare: sulle cosce, sugli stinchi o sui piedi. Inspira profondamente... allunga la colonna in avanti... espira... lascia che il busto scenda dolcemente verso le gambe... rimani qui, senti l'allungamento lungo tutta la parte posteriore del corpo... Inspira profondamente... crea spazio tra le vertebre... espira... rilassa la testa e il collo, abbandona ogni resistenza... respira con calma... ancora un respiro profondo... | Inspirando, risali lentamente srotolando la colonna vertebra dopo vertebra, fino a tornare seduto con la schiena eretta."
   },
   {
     id: "defaticamento_apanasana",
@@ -540,24 +482,23 @@ export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]
       "integrazione_sukhasana",
       "riscaldamento_gatto_mucca",
       "piedi_tadasana",
-      "piegamento_cobra",
+      "piegamento_sfinge",
       "rilassamento_savasana",
       "meditazione_guida"
     ];
     return byIds(ids);
   }
   if (durationMin <= 15) {
-    // Essentials only (~10 poses): centering, spine warm-up, one gentle
-    // dynamic flow, standing strength, one backbend + counterpose, then a
-    // short breath meditation instead of the long body scan.
+    // Essentials only (~9 poses): centering, spine warm-up, standing
+    // strength, one gentle backbend + counterpose, then a short breath
+    // meditation instead of the long body scan.
     const ids = [
       "integrazione_sukhasana",
       "riscaldamento_gatto_mucca",
       "piedi_tadasana",
-      "piedi_saluto_sole",
       "piedi_guerriero2_sinistro",
       "piedi_guerriero2_destro",
-      "piegamento_cobra",
+      "piegamento_sfinge",
       "defaticamento_apanasana",
       "rilassamento_savasana",
       "meditazione_respiro"
@@ -573,7 +514,7 @@ export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]
       "piedi_guerriero2_destro",
       "equilibrio_albero_sinistro",
       "equilibrio_albero_destro",
-      "piegamento_cobra",
+      "piegamento_sfinge",
       "defaticamento_apanasana",
       "rilassamento_savasana",
       "respirazione_sama_vritti",
@@ -582,23 +523,23 @@ export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]
     return byIds(ids);
   }
   if (durationMin <= 30) {
-    // Balanced full arc (~17 poses): seated + standing warm-up, dynamic
-    // flow, standing strength, balance (tree, Harvard's fall-prevention
-    // staple), backbend with its forward-fold counterpose, hips, cool-down,
-    // then the full closing block. Triangle pair is reserved for 45 min.
+    // Balanced full arc (~17 poses): seated warm-up, standing strength with
+    // the triangle pair, balance (tree, Harvard's fall-prevention staple),
+    // two gentle backbends (sphinx + bridge), hips, cool-down, then the
+    // full closing block.
     const ids = [
       "integrazione_sukhasana",
       "riscaldamento_collo_spalle",
       "riscaldamento_gatto_mucca",
-      "riscaldamento_mezzaluna",
       "piedi_tadasana",
-      "piedi_saluto_sole",
       "piedi_guerriero2_sinistro",
       "piedi_guerriero2_destro",
+      "piedi_triangolo_sinistro",
+      "piedi_triangolo_destro",
       "equilibrio_albero_sinistro",
       "equilibrio_albero_destro",
-      "piegamento_cobra",
-      "piegamento_avanti_seduto",
+      "piegamento_sfinge",
+      "piegamento_ponte",
       "apertura_farfalla",
       "defaticamento_apanasana",
       "rilassamento_savasana",
@@ -608,35 +549,31 @@ export function getSequenceForDuration(durationMin: number, allSteps: YogaStep[]
     return byIds(ids);
   }
   if (durationMin <= 45) {
-    // Complete curated practice (~27 poses, ~90s each): full warm-up chain
-    // with a natural floor-to-standing transition (down dog -> mezzaluna,
-    // whose entry cue is "alzati in piedi"), standing/balance block, all
-    // three backbends with
-    // forward-fold counterpose, seated twists, restorative inversion, and
-    // the long closing block. Deliberately excluded (Builder-only): Warrior
-    // III (too demanding for a guided beginner class), supine twists
-    // (covered by the seated pair), sufi rolls and the standing shoulder
-    // opener (overlap with other warm-ups), Metta meditation.
+    // Complete curated practice (~24 poses, ~90s each): floor warm-up chain,
+    // then Tadasana (whose entry cue "portati in piedi" handles the
+    // floor-to-standing transition) followed by the standing warm-ups,
+    // standing/balance block, two gentle backbends (sphinx + bridge),
+    // hips, seated twists, restorative inversion, and the long closing
+    // block. Deliberately excluded (Builder-only): Warrior III (too
+    // demanding for a guided beginner class), supine twists (covered by
+    // the seated pair), sufi rolls, Metta meditation.
     const ids = [
       "integrazione_sukhasana",
       "riscaldamento_collo_spalle",
       "riscaldamento_gatto_mucca",
       "riscaldamento_balasana",
       "riscaldamento_cane",
-      "riscaldamento_mezzaluna",
-      "riscaldamento_bambola",
       "piedi_tadasana",
-      "piedi_saluto_sole",
+      "riscaldamento_spalle",
+      "riscaldamento_bambola",
       "piedi_guerriero2_sinistro",
       "piedi_guerriero2_destro",
       "piedi_triangolo_sinistro",
       "piedi_triangolo_destro",
       "equilibrio_albero_sinistro",
       "equilibrio_albero_destro",
-      "piegamento_cobra",
-      "piegamento_locusta",
+      "piegamento_sfinge",
       "piegamento_ponte",
-      "piegamento_avanti_seduto",
       "apertura_farfalla",
       "torsione_matsyendra_sinistro",
       "torsione_matsyendra_destro",
