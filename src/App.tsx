@@ -518,12 +518,17 @@ export default function App() {
       // AI Mode
       let objectUrl: string | null = null;
       let cancelled = false;
+      // A single incident can surface through both audio.onerror and the
+      // play() rejection — count it at most once per effect run.
+      let failureHandled = false;
 
       // Shared handler for any AI voice failure (fetch error or HTML audio playback error).
       // A confirmed quota error, or two consecutive failures, downgrades the whole session
       // to the system voice. A single isolated glitch just skips this step's AI narration
       // and advances the phase normally (no chime) so the practice doesn't get stuck.
       const handleAiFailure = (err: unknown, isQuota: boolean) => {
+        if (cancelled || failureHandled) return;
+        failureHandled = true;
         console.warn("AI Voice failed for this step.", err);
         consecutiveAiFailuresRef.current += 1;
         if (isQuota || consecutiveAiFailuresRef.current >= 2) {
@@ -579,8 +584,20 @@ export default function App() {
             return audio.play();
           })
           .catch(err => {
+            // Stale request cancelled by the effect cleanup: not a failure.
+            if (cancelled) return;
+            // iOS Safari rejects play() without a recent user gesture (screen
+            // lock, auto-advance while idle). That's not a voice failure and
+            // must not trigger the quota fallback: pause the practice so the
+            // next tap on play — a real gesture — resumes with audio allowed.
+            if ((err as DOMException)?.name === "NotAllowedError") {
+              setIsPlaying(false);
+              return;
+            }
+            // pause() interrupting an in-flight play() during cleanup: benign.
+            if ((err as DOMException)?.name === "AbortError") return;
             // The client sees a 429 HTTP status when the server responds with a quota error.
-            handleAiFailure(err, !!err?.message?.includes("429"));
+            handleAiFailure(err, !!(err as Error)?.message?.includes("429"));
           });
       }
 
